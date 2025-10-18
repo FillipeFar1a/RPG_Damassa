@@ -8,7 +8,7 @@ public class PocaoCuraSuprema extends Item implements Usavel {
     public static final int CURA = 50;
 
     public PocaoCuraSuprema(int quantidade) {
-        super("Poção de Cura Suprema", "Cura " + CURA + " PV", "cura", quantidade);
+        super("Poção de Cura Suprema", "Restaura " + CURA + " PV", "cura", quantidade);
     }
 
     @Override

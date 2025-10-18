@@ -7,10 +7,37 @@ import personagens.herois.FabricaDePersonagens;
 import java.io.*;
 import java.util.Scanner;
 
+// IMPORTA O MUNDO
+import mundo.WorldProgress;
+
+/**
+ * Jogo.java integrado com:
+ * - Sistema de Áreas/Mundo (WorldProgress)
+ * - Salvamento de pacote (Personagem + Mundo) com retrocompatibilidade
+ * - Menu de exploração por área (mínimo p/ avançar + limite de salas)
+ * - "Usar item (demo)" mantido como placeholder
+ *
+ * IMPORTANTE: textos da história NÃO foram alterados.
+ */
 public class Jogo {
 
     private static final String SAVE_PATH = "src/data/saves/save.dat";
     private static final String RANK_PATH = "src/data/rank/rank.txt";
+
+    // Estado do mundo atual (vai junto no save)
+    private static WorldProgress mundo;
+
+    // Pacote de save (classe interna para evitar conflito de arquivo)
+    private static class SaveData implements Serializable {
+        private final Personagem jogador;
+        private final WorldProgress world;
+        SaveData(Personagem jogador, WorldProgress world) {
+            this.jogador = jogador;
+            this.world = world;
+        }
+        Personagem getJogador() { return jogador; }
+        WorldProgress getWorld() { return world; }
+    }
 
     public static void iniciar() {
         Scanner sc = new Scanner(System.in);
@@ -55,18 +82,18 @@ public class Jogo {
     }
 
     // ───────────────────────────────
-    // 1) Fluxo de "Começar": seleção do herói + intro + loop básico
+    // 1) Fluxo de "Começar": seleção do herói + intro + loop com MUNDO
     private static void comecarJogo(Scanner sc) {
         Personagem jogador = selecionarHeroi(sc);
 
-        // Intro personalizada com efeito digitando
+        // Intro personalizada com efeito digitando (TEXTOS MANTIDOS)
         Efeitos.limparTela();
         System.out.println("Você escolheu: " + jogador.getNome() + " — " + jogador.getClasse() + "\n");
         Efeitos.textoDigitando(jogador.intro(), 28, 650);
         System.out.println("\n[Pressione Enter para começar a jornada]");
         sc.nextLine();
 
-        // Cena inicial após a introdução do herói
+        // Cena inicial (TEXTOS MANTIDOS)
         Efeitos.limparTela();
         String[] cena1 = {
                 "Ao chegar em Freljord, você sente o solo tremer sob seus pés.",
@@ -101,7 +128,14 @@ public class Jogo {
         System.out.println("\n[Pressione Enter para iniciar a jornada]");
         sc.nextLine();
 
-        // Loop básico de gameplay (placeholder)
+        // Inicializa o mundo novo
+        mundo = new WorldProgress();
+
+        // Loop principal com mundo integrado
+        loopPrincipal(sc, jogador);
+    }
+
+    private static void loopPrincipal(Scanner sc, Personagem jogador) {
         boolean jogando = true;
         while (jogando && jogador.vivo()) {
             Efeitos.limparTela();
@@ -109,38 +143,87 @@ public class Jogo {
             System.out.println(jogador);
 
             System.out.println("\nAções:");
-            System.out.println("[1] Explorar");
-            System.out.println("[2] Usar Item (demo)");
-            System.out.println("[3] Salvar Jogo");
-            System.out.println("[4] Pausar");
-            System.out.println("[5] Voltar ao Menu");
+            System.out.println("[1] Explorar (área atual)");
+            System.out.println("[2] Explorar em outra área");
+            System.out.println("[3] Ver Mapa/Áreas");
+            System.out.println("[4] Avançar para próxima área");
+            System.out.println("[5] Usar Item (demo)");
+            System.out.println("[6] Salvar Jogo");
+            System.out.println("[7] Pausar");
+            System.out.println("[8] Voltar ao Menu");
             System.out.print("> ");
 
             String op = sc.nextLine().trim();
             switch (op) {
                 case "1" -> {
-                    // TODO: integrar combate/eventos
-                    System.out.println("Você explora as planícies geladas de Freljord...");
-                    System.out.println("Sente o ar ficar pesado — o trovão observa.");
-                    // ganho de xp de demo
-                    jogador.ganharXp(5);
-                    System.out.println("+5 XP!");
+                    int idx = mundo.getAreaAtualIndex();
+                    if (mundo.explorarNaArea(idx)) {
+                        // Aqui você pode disparar o "evento de exploração" (inimigo/armadilha/loot)
+                        System.out.println("Você explora a área: " + mundo.getAreaAtual().def().getNome());
+                        // ganho de xp demo
+                        jogador.ganharXp(5);
+                        System.out.println("+5 XP!");
+                    } else {
+                        System.out.println("Esta área esgotou suas salas (limite atingido).");
+                    }
                     aguardarEnter(sc);
                 }
                 case "2" -> {
-                    // TODO: integrar inventário real
+                    System.out.println(mundo.mapa()); // mostra só liberadas
+                    System.out.print("Qual área deseja explorar? (número) ");
+                    try {
+                        int num = Integer.parseInt(sc.nextLine());
+                        int idx = num - 1;
+
+                        if (idx < 0 || idx >= mundo.getUnlockedCount()) {
+                            System.out.println("Área inválida. Selecione uma das áreas liberadas exibidas no mapa.");
+                        } else {
+                            // >>> troca o foco da área atual <<<
+                            mundo.setAreaAtual(idx);
+
+                            if (mundo.explorarNaArea(idx)) {
+                                System.out.println("Você explora a área: " + mundo.getAreas().get(idx).def().getNome());
+                                jogador.ganharXp(5);
+                                System.out.println("+5 XP!");
+                            } else {
+                                System.out.println("Não foi possível (esta área já esgotou as salas).");
+                            }
+                        }
+                    } catch (NumberFormatException e) {
+                        System.out.println("Entrada inválida.");
+                    }
+                    aguardarEnter(sc);
+                }
+
+                case "3" -> {
+                    System.out.println(mundo.mapa()); // ou mundo.mapaCurto();
+                    aguardarEnter(sc);
+                }
+
+                case "4" -> {
+                    if (mundo.podeAvancar()) {
+                        mundo.avancarArea();
+                        System.out.println("Você avançou para: " + mundo.getAreaAtual().def().getNome());
+                    } else {
+                        System.out.println("Ainda não liberou o avanço. Explore mais salas na área atual.");
+                    }
+                    aguardarEnter(sc);
+                }
+                case "5" -> {
+                    // DEMO: usar item sem mexer na tua estrutura (integre com Inventario real depois)
+                    jogador.curar(5);
                     System.out.println(jogador.getNome() + " recuperou 5 PV.");
                     aguardarEnter(sc);
                 }
-                case "3" -> {
-                    salvarJogo(jogador);
+                case "6" -> {
+                    salvarJogoPacote(jogador, mundo);
                     aguardarEnter(sc);
                 }
-                case "4" -> {
+                case "7" -> {
                     System.out.println("\n[PAUSE] Pressione Enter para continuar...");
                     sc.nextLine();
                 }
-                case "5" -> jogando = false;
+                case "8" -> jogando = false;
                 default -> {
                     System.out.println("Opção inválida!");
                     Efeitos.esperar(800);
@@ -179,62 +262,23 @@ public class Jogo {
     // 2) Carregar / Salvar / Rank / Config
     private static void carregarJogo(Scanner sc) {
         Efeitos.limparTela();
-        Personagem p = lerSave();
-        if (p == null) {
+        Carregado c = lerSaveCompat();
+        if (c == null || c.jogador == null) {
             System.out.println("Nenhum save válido encontrado.");
             aguardarEnter(sc);
             return;
         }
-        System.out.println("Save carregado: " + p.getNome() + " — Nível " + p.getNivel());
+        // seta o mundo atual
+        mundo = (c.mundo != null) ? c.mundo : new WorldProgress();
+
+        System.out.println("Save carregado: " + c.jogador.getNome() + " — Nível " + c.jogador.getNivel());
         aguardarEnter(sc);
 
-        // Pequeno loop para continuar jogando com o personagem carregado
-        boolean jogando = true;
-        while (jogando && p.vivo()) {
-            Efeitos.limparTela();
-            System.out.println("=== STATUS (Carregado) ===");
-            System.out.println(p);
+        loopPrincipal(sc, c.jogador);
 
-            System.out.println("\nAções:");
-            System.out.println("[1] Explorar");
-            System.out.println("[2] Usar Item (demo)");
-            System.out.println("[3] Salvar Jogo");
-            System.out.println("[4] Pausar");
-            System.out.println("[5] Voltar ao Menu");
-            System.out.print("> ");
-
-            String op = sc.nextLine().trim();
-            switch (op) {
-                case "1" -> {
-                    System.out.println("Você explora com cautela… o vento traz um rugido distante.");
-                    p.ganharXp(5);
-                    System.out.println("+5 XP!");
-                    aguardarEnter(sc);
-                }
-                case "2" -> {
-                    p.curar(5);
-                    System.out.println(p.getNome() + " recuperou 5 PV.");
-                    aguardarEnter(sc);
-                }
-                case "3" -> {
-                    salvarJogo(p);
-                    aguardarEnter(sc);
-                }
-                case "4" -> {
-                    System.out.println("\n[PAUSE] Pressione Enter para continuar...");
-                    sc.nextLine();
-                }
-                case "5" -> jogando = false;
-                default -> {
-                    System.out.println("Opção inválida!");
-                    Efeitos.esperar(800);
-                }
-            }
-        }
-
-        if (!p.vivo()) {
-            registrarPontuacao(p.getNome(), p.getNivel());
-            System.out.println("\nGame Over. Nível alcançado: " + p.getNivel());
+        if (!c.jogador.vivo()) {
+            registrarPontuacao(c.jogador.getNome(), c.jogador.getNivel());
+            System.out.println("\nGame Over. Nível alcançado: " + c.jogador.getNivel());
             aguardarEnter(sc);
         }
     }
@@ -293,12 +337,14 @@ public class Jogo {
         sc.nextLine();
     }
 
-    private static void salvarJogo(Personagem p) {
+    // ───────────────────────────────
+    // SALVAR / CARREGAR — novo formato (jogador+mundo) com retrocompat
+    private static void salvarJogoPacote(Personagem p, WorldProgress w) {
         try {
             File arquivo = new File(SAVE_PATH);
             arquivo.getParentFile().mkdirs(); // garante pastas
             try (ObjectOutputStream out = new ObjectOutputStream(new FileOutputStream(arquivo))) {
-                out.writeObject(p);
+                out.writeObject(new SaveData(p, w));
             }
             System.out.println("Jogo salvo com sucesso.");
         } catch (Exception e) {
@@ -306,12 +352,43 @@ public class Jogo {
         }
     }
 
-    private static Personagem lerSave() {
-        try (ObjectInputStream in = new ObjectInputStream(new FileInputStream(SAVE_PATH))) {
-            return (Personagem) in.readObject();
-        } catch (Exception e) {
-            return null;
-        }
+    /** Estrutura de retorno para carregamento compatível. */
+    private static class Carregado {
+        Personagem jogador;
+        WorldProgress mundo;
+    }
+
+    /**
+     * Tenta ler no formato novo (SaveData). Se falhar, tenta o formato antigo (só Personagem).
+     * Se conseguir o antigo, instancia um WorldProgress novo para não quebrar o fluxo.
+     */
+    private static Carregado lerSaveCompat() {
+        File arquivo = new File(SAVE_PATH);
+        if (!arquivo.exists()) return null;
+
+        // 1) tenta formato novo
+        try (ObjectInputStream in = new ObjectInputStream(new FileInputStream(arquivo))) {
+            Object o = in.readObject();
+            if (o instanceof SaveData sd) {
+                Carregado c = new Carregado();
+                c.jogador = sd.getJogador();
+                c.mundo = sd.getWorld();
+                return c;
+            }
+        } catch (Exception ignored) {}
+
+        // 2) tenta formato antigo (só Personagem)
+        try (ObjectInputStream in = new ObjectInputStream(new FileInputStream(arquivo))) {
+            Object o = in.readObject();
+            if (o instanceof Personagem p) {
+                Carregado c = new Carregado();
+                c.jogador = p;
+                c.mundo = new WorldProgress(); // cria um mundo do zero
+                return c;
+            }
+        } catch (Exception ignored) {}
+
+        return null;
     }
 
     private static void registrarPontuacao(String nome, int nivel) {
