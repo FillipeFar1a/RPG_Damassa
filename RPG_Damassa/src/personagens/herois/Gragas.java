@@ -1,6 +1,8 @@
 package personagens.herois;
 
 import personagens.Personagem;
+import java.util.Random;
+import java.util.Scanner;
 
 public class Gragas extends Personagem {
     public Gragas() {
