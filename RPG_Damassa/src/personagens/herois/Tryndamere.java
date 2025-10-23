@@ -51,7 +51,7 @@ public class Tryndamere extends Personagem {
         int custo = switch (escolha) {
             case 1 -> 6;
             case 2 -> 8;
-            case 3 -> 12;
+            case 3 -> 16;
             default -> 0;
         };
 

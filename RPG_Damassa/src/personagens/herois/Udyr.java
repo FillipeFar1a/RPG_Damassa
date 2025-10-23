@@ -100,12 +100,13 @@ public class Udyr extends Personagem {
                     System.out.println(this.getNome() + " invoca o ESPÍRITO DO JAVALI DE FERRO!");
                     System.out.println("Sua pele endurece como aço, reduzindo o dano recebido e curando " + cura + " PV!");
                 } else {
-                    System.out.println("A bênção do Javali de Ferro já protege Udyr!");
+                    System.out.println("A bênção de Illdhaurg já protege Udyr!");
                 }
             }
 
             default -> System.out.println("Udyr perde a sintonia espiritual e hesita...");
         }
+        System.out.println("PM restante: " + this.getPm() + "/" + this.getPmMax());
     }
 
     @Override

@@ -7,6 +7,7 @@ import java.util.Scanner;
 public class Aurora extends Personagem {
 
     private int turnosBuff = 0; // controla duração de buff de defesa
+    private int ataquesConsecutivos = 0;
     private int turnosDebuff = 0; // controla duração de debuff do inimigo
 
     public Aurora() {
@@ -87,6 +88,19 @@ public class Aurora extends Personagem {
             }
 
             default -> System.out.println("Habilidade inválida, Aurora perde o turno!");
+        }
+
+        System.out.println("PM restante: " + this.getPm() + "/" + this.getPmMax());
+
+        }
+
+    private void aplicarPassiva() {
+        ataquesConsecutivos++;
+        if (ataquesConsecutivos >= 3) {
+            ataquesConsecutivos = 0;
+            int cura = (int) (this.getPvMax() * 0.15);
+            this.setPv(this.getPv() + cura);
+            System.out.println(" Coração de Gelo: Aurora canaliza o frio e recupera " + cura + " PV!");
         }
     }
 }

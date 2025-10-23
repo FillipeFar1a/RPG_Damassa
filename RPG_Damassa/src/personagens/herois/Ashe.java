@@ -89,6 +89,8 @@ public class Ashe extends Personagem {
                 System.out.println(this.getNome() + " Dispara uma Flecha Precisa!");
                 System.out.println(alvo.getNome() + " sofreu " + dano + "de dano!");
             }
+            default -> System.out.println("Ashe hesita e abaixa o arco...");
         }
+        System.out.println("PM restante: " + this.getPm() + "/" + this.getPmMax());
     }
 }

@@ -95,7 +95,7 @@ public class Braum extends Personagem {
                     this.setPv(this.getPv() + cura);
                     this.setDef(this.getDef() + 5);
                     turnosBuff = 3;
-                    System.out.println(this.getNome() + " invoca os espíritos de Freljord! Recupera " + cura + " PV e aumenta sua defesa.");
+                    System.out.println(this.getNome() + " invoca os poros de Freljord! Recupera " + cura + " PV e aumenta sua defesa.");
                 } else {
                     System.out.println("O efeito do Coração do Norte ainda está ativo!");
                 }
@@ -103,6 +103,7 @@ public class Braum extends Personagem {
 
             default -> System.out.println("Habilidade inválida");
         }
+        System.out.println("PM restante: " + this.getPm() + "/" + this.getPmMax());
     }
     @Override
     public void receberDano(int danoBruto) {
