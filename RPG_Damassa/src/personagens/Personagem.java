@@ -1,5 +1,7 @@
 package personagens;
 
+import personagens.herois.Aurora;
+
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -130,11 +132,55 @@ public abstract class Personagem implements Serializable {
     public int getXp() { return xp; }
     public int getXpMax() { return xpMax; }
 
+    // --- SETTERS compatíveis com os atributos existentes ---
+
+    public void setPv(int pv) {
+        if (pv < 0) pv = 0;
+        if (pv > pvMax) pv = pvMax;
+        this.pv = pv;
+    }
+
+    public void setPm(int pm) {
+        if (pm < 0) pm = 0;
+        if (pm > pmMax) pm = pmMax;
+        this.pm = pm;
+    }
+
+    public void setAtk(int atk) {
+        if (atk < 0) atk = 0;
+        this.atk = atk;
+    }
+
+    public void setDef(int def) {
+        if (def < 0) def = 0;
+        this.def = def;
+    }
+
+    public void setNivel(int nivel) {
+        this.nivel = Math.max(1, nivel);
+    }
+
+    public void setXp(int xp) {
+        this.xp = Math.max(0, xp);
+    }
+
     @Override
     public String toString() {
         return String.format(
                 "%s — %s | Nível %d | PV %d/%d | PM %d/%d | ATK %d | DEF %d | XP %d/%d",
                 nome, classe, nivel, pv, pvMax, pm, pmMax, atk, def, xp, xpMax
         );
+    }
+
+    public abstract void usarHabilidade(Personagem alvo);
+
+    protected boolean congelado = false;
+
+    public boolean isCongelado() {
+        return congelado;
+    }
+
+    public void setCongelado(boolean congelado) {
+        this.congelado = congelado;
     }
 }
