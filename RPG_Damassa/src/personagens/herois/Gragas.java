@@ -15,4 +15,29 @@ public class Gragas extends Personagem {
                 "Ele brinda à pancadaria e tropeça rumo ao trovão."
         };
     }
+
+    @Override
+    public void usarHabilidade(Personagem alvo) {
+        Scanner scanner = new Scanner(System.in);
+        System.out.println("\nEscolha a habilidade de Gragas:");
+        System.out.println("1 -");
+        System.out.println("2 -");
+        System.out.println("3 -");
+        System.out.print("Digite o número da habilidade: ");
+        int escolha = scanner.nextInt();
+
+        int custo = switch (escolha) {
+            case 1 -> 6;
+            case 2 -> 8;
+            case 3 -> 7;
+            default -> 0;
+        };
+
+        if (this.getPm() < custo) {
+            System.out.println("Mana insuficiente! (" + this.getPm() + "/" + this.getPmMax() + ")");
+            return;
+        }
+
+        this.gastarMana(custo);
+    }
 }

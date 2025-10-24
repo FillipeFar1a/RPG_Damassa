@@ -15,7 +15,7 @@ public class LeeSin extends Personagem {
     private Random random = new Random();
 
     public LeeSin() {
-        super("Lee Sin", "Monge Cego", 32, 16, 8, 4, 1, 20);
+        super("Lee Sin", "Monge Cego", 38, 16, 8, 4, 1, 20);
     }
     @Override public String[] intro() {
         return new String[]{
@@ -54,17 +54,15 @@ public class LeeSin extends Personagem {
         Scanner scanner = new Scanner(System.in);
         System.out.println("\nEscolha a habilidade de Lee Sin:");
         System.out.println("1 - Onda Sônica / Golpe Resonante (combo de 2 etapas) - Custo: 6 PM");
-        System.out.println("2 - Safeguard (escudo e cura) - Custo: 8 PM");
-        System.out.println("3 - Fúria do Dragão (chute devastador, 180% dano e atordoa) - Custo: 10 PM");
-        System.out.println("4 - Foco Interior (buff +3 ATK e +2 DEF por 3 turnos) - Custo: 7 PM");
+        System.out.println("2 - Guarda-alta (escudo e cura) - Custo: 8 PM");
+        System.out.println("3 - Foco Interior (buff +3 ATK e +2 DEF por 3 turnos) - Custo: 7 PM");
         System.out.print("Digite o número da habilidade: ");
         int escolha = scanner.nextInt();
 
         int custo = switch (escolha) {
             case 1 -> 6;
             case 2 -> 8;
-            case 3 -> 10;
-            case 4 -> 7;
+            case 3 -> 7;
             default -> 0;
         };
 
@@ -76,8 +74,8 @@ public class LeeSin extends Personagem {
         this.gastarMana(custo);
 
         switch (escolha) {
-            case 1 -> { // Onda Sônica / Golpe Resonante
-                int dano; // ✅ declarado antes do if
+            case 1 -> {
+                int dano;
 
                 if (!marcouAlvo) {
                     dano = (int) (this.getAtk() * 1.3) - alvo.getDef();
