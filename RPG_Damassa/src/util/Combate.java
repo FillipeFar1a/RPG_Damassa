@@ -1,231 +1,196 @@
 package util;
 
 import personagens.Personagem;
-import personagens.inimigos.Garen;
-import personagens.inimigos.Kindred;
-import personagens.inimigos.UrsoDeMilFlagelos;
-import personagens.inimigos.Volibear;
-import personagens.herois.Ryze;
+import itens.Inventario;
+import itens.Item;
 
+import java.util.List;
 import java.util.Random;
 import java.util.Scanner;
 
+/**
+ * Loop de combate com HUD: mostra PV/PM de jogador e inimigo o tempo todo
+ * e limpa a tela após cada ação.
+ */
 public class Combate {
-
-    /** Gancho para integrar inventário real (retorna true se usou item) */
-    public interface ItemUser {
-        boolean usarItem(Personagem usuario, Personagem alvo, Scanner sc);
-    }
-
-    private Personagem jogador;
-    private Personagem inimigo;
-    private final Random random = new Random();
-    private final Scanner scanner = new Scanner(System.in);
-    private final ItemUser itemUser; // pode ser null
-
-    // === NOVO: flag de fuga (para não contar como vitória nem disparar 2ª fase) ===
-    private boolean fugaPorPortalOuFugaNormal = false;
+    private final Personagem jogador;
+    private final Personagem inimigo;
+    private final Scanner sc = new Scanner(System.in);
+    private final Random rng = new Random();
 
     public Combate(Personagem jogador, Personagem inimigo) {
-        this(jogador, inimigo, null);
-    }
-
-    public Combate(Personagem jogador, Personagem inimigo, ItemUser itemUser) {
         this.jogador = jogador;
         this.inimigo = inimigo;
-        this.itemUser = itemUser;
     }
 
     public void iniciar() {
-        System.out.println("\n=== ⚔️ INÍCIO DA BATALHA ⚔️ ===");
-        imprimirCabecalho();
+        // Começo do combate
+        aguardinha("Um combate começou!");
 
-        while (jogador.vivo()) {
-            // ===== Turno do jogador =====
-            turnoJogador();
+        while (jogador.vivo() && inimigo.vivo()) {
+            // ===== TURNO DO JOGADOR =====
+            Efeitos.limparTela();
+            // efeitos de início do turno do jogador
+            jogador.processarEfeitosInicioDoTurno(inimigo);
+            renderHUD();
 
-            // Se pediu portal/fuga, encerra sem checar 2ª fase
-            if (fugaPorPortalOuFugaNormal) break;
-
-            if (!inimigo.vivo()) {
-                // NÃO transformar em Urso se o término foi por fuga
-                if (!fugaPorPortalOuFugaNormal && inimigo instanceof Volibear) {
-                    System.out.println("\n⚡ O céu rasga em trovões! Volibear não cai — ele DESPERTA!");
-                    inimigo = new UrsoDeMilFlagelos();
-                    imprimirCabecalho();
-                    continue; // segue para a segunda fase
-                }
-                break; // vitória final
+            boolean gastouTurno = turnoDoJogador();
+            if (gastouTurno) {
+                esperarEnterELimpar();
             }
+            if (!inimigo.vivo() || !jogador.vivo()) break;
 
-            // ===== Turno do inimigo =====
-            turnoInimigo();
-            if (!jogador.vivo()) break;
+            // ===== TURNO DO INIMIGO =====
+            Efeitos.limparTela();
+            // efeitos de início do turno do inimigo
+            inimigo.processarEfeitosInicioDoTurno(jogador);
+            renderHUD();
+
+            turnoDoInimigo();
+            esperarEnterELimpar();
         }
 
-        // Resultado final
-        if (fugaPorPortalOuFugaNormal) {
-            System.out.println("\n🏃 Você escapou do combate.");
-        } else if (jogador.vivo()) {
-            System.out.println("\n🏆 " + jogador.getNome() + " venceu a batalha!");
-            jogador.ganharXp(10);
+        // Fim do combate
+        if (jogador.vivo() && !inimigo.vivo()) {
+            aguardinha("Você venceu!");
+        } else if (!jogador.vivo() && inimigo.vivo()) {
+            aguardinha("Você foi derrotado...");
         } else {
-            System.out.println("\n💀 " + jogador.getNome() + " foi derrotado...");
+            aguardinha("O combate terminou.");
         }
-
-        System.out.println("===============================");
     }
 
-    private void imprimirCabecalho() {
-        System.out.println(jogador.getNome() + " (" + jogador.getClasse() + ") VS " +
-                inimigo.getNome() + " (" + inimigo.getClasse() + ")");
-        System.out.println("-------------------------------");
-    }
+    // =================== LOOPS DE TURNO ===================
 
-    private void turnoJogador() {
-        // efeitos começo do turno + reset de modificadores
-        jogador.processarEfeitosInicioDoTurno(inimigo);
+    /** Retorna true se o jogador consumiu o turno (ex.: atacou, usou item etc.). */
+    private boolean turnoDoJogador() {
+        while (true) {
+            System.out.println("\nSua vez, escolha uma ação:");
+            System.out.println("[1] Atacar");
+            System.out.println("[2] Habilidade");
+            System.out.println("[3] Usar Item");
+            System.out.println("[4] Passar Turno");
+            System.out.print("> ");
+            String op = sc.nextLine().trim();
 
-        System.out.println("\n--- Seu turno ---");
-        System.out.println(jogador);
-        System.out.println("1 - Ataque básico");
-        System.out.println("2 - Usar habilidade");
-        System.out.println("3 - Usar item");
-        System.out.println("4 - Fugir");
-        System.out.print("Escolha: ");
-
-        int escolha = lerOpcao(1, 4);
-
-        if (jogador.isCongelado()) {
-            System.out.println(jogador.getNome() + " está incapacitado e perde o turno!");
-            jogador.setCongelado(false);
-            return;
-        }
-
-        switch (escolha) {
-            case 1 -> ataqueComDado(jogador, inimigo);
-            case 2 -> {
-                jogador.usarHabilidade(inimigo);
-                // === NOVO: se for Ryze e ele acionou portal, tratamos como fuga bem-sucedida ===
-                if (jogador instanceof Ryze ryze && ryze.consumirFlagPortalFuga()) {
-                    fugaPorPortalOuFugaNormal = true;
-                    System.out.println("O portal dobra o espaço — você some do confronto!");
-                    return;
+            switch (op) {
+                case "1" -> {
+                    int dano = jogador.getAtkEfetivo();
+                    inimigo.receberDano(dano);
+                    System.out.printf("%s ataca e causa %d de dano!\n", jogador.getNome(), Math.max(1, dano - inimigo.getDef()));
+                    return true;
                 }
-            }
-            case 3 -> {
-                if (itemUser != null) {
-                    boolean usou = itemUser.usarItem(jogador, inimigo, scanner);
-                    if (!usou) {
-                        System.out.println("Nenhum item usado. Você hesita e perde o turno...");
+                case "2" -> {
+                    jogador.usarHabilidade(inimigo);
+                    // Supõe que a habilidade consome o turno
+                    return true;
+                }
+                case "3" -> {
+                    if (menuUsarItem(jogador)) {
+                        return true; // usar item consome turno
+                    } else {
+                        // volta ao menu sem consumir turno
+                        renderHUD();
                     }
-                } else {
-                    System.out.println("Inventário não integrado ainda. (Dica: injete um ItemUser no construtor)");
-                    System.out.println("Você hesita e perde o turno...");
+                }
+                case "4" -> {
+                    System.out.println("Você observa o inimigo e prepara sua guarda...");
+                    return true;
+                }
+                default -> {
+                    System.out.println("Opção inválida.");
                 }
             }
-            case 4 -> {
-                if (tentarFugir()) {
-                    System.out.println("Você conseguiu fugir!");
-                    // encerra o combate imediatamente sem contar vitória
-                    fugaPorPortalOuFugaNormal = true;
-                    return;
-                } else {
-                    System.out.println("Você falhou em fugir! O inimigo ataca de oportunidade!");
-                    ataqueComDado(inimigo, jogador); // ataque imediato do inimigo
-                }
-            }
-            default -> System.out.println("Você hesitou e perdeu o turno...");
-        }
-
-        if (!fugaPorPortalOuFugaNormal && inimigo.vivo()) {
-            inimigoStatus();
         }
     }
 
-    private void turnoInimigo() {
-        // efeitos começo do turno + reset de modificadores
-        inimigo.processarEfeitosInicioDoTurno(jogador);
-
-        System.out.println("\n--- Turno do inimigo ---");
-
-        // ===== Regras especiais: KINDRED =====
-        if (inimigo instanceof Kindred) {
-            if (inimigo.isCongelado()) {
-                inimigo.setCongelado(false);
-            }
-            inimigo.usarHabilidade(jogador); // IK
-            if (jogador.vivo()) {
-                jogadorStatus();
-            }
-            return;
-        }
-
-        // ===== IA específica do GAREN: se puder executar, usa ult =====
-        if (inimigo instanceof Garen) {
-            int limiteExec = Math.max(1, (int) Math.floor(jogador.getPvMax() * 0.10));
-            if (jogador.getPv() <= limiteExec) {
-                inimigo.usarHabilidade(jogador); // Justiça Demaciana (IK)
-                if (jogador.vivo()) jogadorStatus();
-                return;
-            }
-        }
-
-        // ===== Fluxo normal para os demais inimigos =====
-        if (inimigo.isCongelado()) {
-            System.out.println(inimigo.getNome() + " está incapacitado e perde o turno!");
-            inimigo.setCongelado(false);
-            return;
-        }
-
-        // 50% habilidade | 50% ataque básico (pode ajustar)
-        if (random.nextBoolean()) {
+    private void turnoDoInimigo() {
+        // IA simples: 35% tentar habilidade, senão ataque básico
+        if (rng.nextDouble() < 0.35) {
+            System.out.printf("%s prepara uma técnica!\n", inimigo.getNome());
             inimigo.usarHabilidade(jogador);
         } else {
-            ataqueComDado(inimigo, jogador);
-        }
-
-        if (jogador.vivo()) {
-            jogadorStatus();
+            int dano = inimigo.getAtkEfetivo();
+            jogador.receberDano(dano);
+            System.out.printf("%s ataca e causa %d de dano!\n", inimigo.getNome(), Math.max(1, dano - jogador.getDef()));
         }
     }
 
-    private int lerOpcao(int min, int max) {
-        int op;
-        while (true) {
-            while (!scanner.hasNextInt()) {
-                scanner.next(); // descarta lixo
-                System.out.print("Digite um número: ");
-            }
-            op = scanner.nextInt();
-            scanner.nextLine(); // consome \n
-            if (op >= min && op <= max) break;
-            System.out.print("Opção inválida. Escolha entre " + min + " e " + max + ": ");
+    // =================== UI / HUD / ITENS ===================
+
+    private void renderHUD() {
+        String barraJog = barra(jogador.getPv(), jogador.getPvMax(), 20);
+        String barraIni = barra(inimigo.getPv(), inimigo.getPvMax(), 20);
+
+        System.out.println("==================================================");
+        System.out.printf(" Herói: %-15s  PV %3d/%-3d %s  PM %3d/%-3d\n",
+                jogador.getNome(), jogador.getPv(), jogador.getPvMax(), barraJog, jogador.getPm(), jogador.getPmMax());
+        System.out.printf(" Inim.: %-15s  PV %3d/%-3d %s  PM %3d/%-3d\n",
+                inimigo.getNome(), inimigo.getPv(), inimigo.getPvMax(), barraIni, inimigo.getPm(), inimigo.getPmMax());
+        System.out.println("==================================================");
+    }
+
+    private String barra(int atual, int max, int largura) {
+        if (max <= 0) max = 1;
+        double pct = Math.max(0, Math.min(1.0, (double) atual / max));
+        int cheios = (int) Math.round(pct * largura);
+        StringBuilder sb = new StringBuilder("[");
+        for (int i = 0; i < largura; i++) {
+            sb.append(i < cheios ? "#" : "-");
         }
-        return op;
+        sb.append("]");
+        return sb.toString();
     }
 
-    private void ataqueComDado(Personagem atacante, Personagem defensor) {
-        int rolagem = random.nextInt(6) + 1; // d6
-        int danoBruto = atacante.getAtkEfetivo() + rolagem; // SEM subtrair DEF aqui
-        defensor.receberDano(danoBruto); // a DEF é aplicada dentro de Personagem.receberDano
+    /** Menu simples de uso de item (inventário do jogador). Retorna true se usou algo. */
+    private boolean menuUsarItem(Personagem p) {
+        Inventario inv = p.getInventario();
+        List<Item> lista = inv.listarOrdenado();
+        if (lista.isEmpty()) {
+            System.out.println("\nInventário vazio!");
+            return false;
+        }
 
-        System.out.println(atacante.getNome() + " rola um d6 e tira " + rolagem + "!");
-        System.out.println(atacante.getNome() + " ataca causando dano bruto " + danoBruto + " (a DEF reduz o dano).");
+        System.out.println("\n=== INVENTÁRIO ===");
+        for (int i = 0; i < lista.size(); i++) {
+            Item it = lista.get(i);
+            System.out.printf("[%d] %s x%d — %s (%s)\n", i + 1, it.getNome(), it.getQuantidade(), it.getDescricao(), it.getEfeito());
+        }
+        System.out.println("[0] Voltar");
+        System.out.print("> ");
+        String s = sc.nextLine().trim();
+
+        int escolha;
+        try { escolha = Integer.parseInt(s); }
+        catch (NumberFormatException e) { System.out.println("Entrada inválida."); return false; }
+
+        if (escolha == 0) return false;
+        int idx = escolha - 1;
+        if (idx < 0 || idx >= lista.size()) { System.out.println("Opção inválida."); return false; }
+
+        Item escolhido = lista.get(idx);
+        System.out.printf("Usar '%s'? (s/N) ", escolhido.getNome());
+        String conf = sc.nextLine().trim().toLowerCase();
+        if (!"s".equals(conf)) return false;
+
+        boolean ok = p.usarItem(escolhido.getNome(), escolhido.getEfeito());
+        if (ok) {
+            System.out.println("Item usado!");
+            return true;
+        } else {
+            System.out.println("Não foi possível usar o item.");
+            return false;
+        }
     }
 
-
-    private boolean tentarFugir() {
-        int r = random.nextInt(6) + 1; // d6
-        System.out.println("Você rola um d6 para fugir... (" + r + ")");
-        return r >= 4; // 4,5,6 foge
+    private void aguardinha(String msg) {
+        System.out.println(msg);
+        Efeitos.esperar(600);
     }
 
-    private void jogadorStatus() {
-        System.out.println("PV do jogador: " + jogador.getPv() + "/" + jogador.getPvMax());
-    }
-
-    private void inimigoStatus() {
-        System.out.println("PV do inimigo: " + inimigo.getPv() + "/" + inimigo.getPvMax());
+    private void esperarEnterELimpar() {
+        System.out.println("\n[Pressione Enter para continuar]");
+        sc.nextLine();
+        Efeitos.limparTela();
     }
 }
