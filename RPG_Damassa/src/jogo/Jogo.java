@@ -1,10 +1,24 @@
 package jogo;
 
 import util.Efeitos;
+import util.Combate;
 import personagens.Personagem;
 import personagens.herois.FabricaDePersonagens;
 
+// INIMIGOS
+import personagens.inimigos.Darius;
+import personagens.inimigos.Trundle;
+import personagens.inimigos.Sylas;
+import personagens.inimigos.Lissandra;
+import personagens.inimigos.Volibear;
+import personagens.inimigos.FlageloGuerreiro;
+import personagens.inimigos.FlageloArqueiro;
+import personagens.inimigos.FlageloMago;
+import personagens.inimigos.FlageloGigante;
+import personagens.inimigos.FlageloSupremo;
+
 import java.io.*;
+import java.util.Random;
 import java.util.Scanner;
 
 // IMPORTA O MUNDO
@@ -15,6 +29,7 @@ import mundo.WorldProgress;
  * - Sistema de Áreas/Mundo (WorldProgress)
  * - Salvamento de pacote (Personagem + Mundo) com retrocompatibilidade
  * - Menu de exploração por área (mínimo p/ avançar + limite de salas)
+ * - Encontros aleatórios (comum/mini-boss) e Boss ao concluir área
  * - "Usar item (demo)" mantido como placeholder
  *
  * IMPORTANTE: textos da história NÃO foram alterados.
@@ -26,6 +41,9 @@ public class Jogo {
 
     // Estado do mundo atual (vai junto no save)
     private static WorldProgress mundo;
+
+    // RNG único para encontros
+    private static final Random RNG = new Random();
 
     // Pacote de save (classe interna para evitar conflito de arquivo)
     private static class SaveData implements Serializable {
@@ -89,28 +107,8 @@ public class Jogo {
         // Intro personalizada com efeito digitando (TEXTOS MANTIDOS)
         Efeitos.limparTela();
         System.out.println("Você escolheu: " + jogador.getNome() + " — " + jogador.getClasse() + "\n");
-        Efeitos.textoDigitando(jogador.intro(), 28, 650);
-        System.out.println("\n[Pressione Enter para começar a jornada]");
-        sc.nextLine();
-
-        // Cena inicial (TEXTOS MANTIDOS)
-        Efeitos.limparTela();
-        String[] cena1 = {
-                "Ao chegar em Freljord, você sente o solo tremer sob seus pés.",
-                "Ao horizonte é possivel ver as Montanhas Tempestuosas onde Volibear habíta",
-        };
-        Efeitos.textoDigitando(cena1, 35, 650);
-        System.out.println("\n[Pressione Enter para continuar]");
-        sc.nextLine();
-
         Efeitos.limparTela();
         String[] cena2 = {
-                "CENÁRIO: ",
-                "Você ainda está longe de seu objetivo.",
-                "O ar é denso, pesado, a cada segundo a neve cai mais forte,",
-                "o horizonte se parte com trovões e cada trovoada traz o eco",
-                "de um rugido de fúria...",
-                "",
                 "Volibear está desperto. E sua ira ameaça engolir o mundo",
                 "E tudo que habíta nele",
                 "..."
@@ -158,8 +156,9 @@ public class Jogo {
                 case "1" -> {
                     int idx = mundo.getAreaAtualIndex();
                     if (mundo.explorarNaArea(idx)) {
-                        // Aqui você pode disparar o "evento de exploração" (inimigo/armadilha/loot)
                         System.out.println("Você explora a área: " + mundo.getAreaAtual().def().getNome());
+                        // Encontro aleatório
+                        tentarEncontro(sc, jogador, idx);
                         // ganho de xp demo
                         jogador.ganharXp(5);
                         System.out.println("+5 XP!");
@@ -178,11 +177,13 @@ public class Jogo {
                         if (idx < 0 || idx >= mundo.getUnlockedCount()) {
                             System.out.println("Área inválida. Selecione uma das áreas liberadas exibidas no mapa.");
                         } else {
-                            // >>> troca o foco da área atual <<<
+                            // troca o foco da área atual
                             mundo.setAreaAtual(idx);
 
                             if (mundo.explorarNaArea(idx)) {
                                 System.out.println("Você explora a área: " + mundo.getAreas().get(idx).def().getNome());
+                                // Encontro aleatório
+                                tentarEncontro(sc, jogador, idx);
                                 jogador.ganharXp(5);
                                 System.out.println("+5 XP!");
                             } else {
@@ -201,7 +202,17 @@ public class Jogo {
                 }
 
                 case "4" -> {
+                    // Antes de avançar, se a área puder avançar, enfrenta o BOSS da área atual
                     if (mundo.podeAvancar()) {
+                        int idxAtual = mundo.getAreaAtualIndex();
+                        Personagem boss = bossDaArea(idxAtual, mundo.getUnlockedCount());
+                        System.out.println("\n⚠ Você sente uma presença poderosa bloqueando seu caminho...");
+                        iniciarCombate(sc, jogador, boss);
+                        if (!jogador.vivo()) {
+                            // derrota do jogador encerra
+                            break;
+                        }
+                        // Se venceu, avança a área
                         mundo.avancarArea();
                         System.out.println("Você avançou para: " + mundo.getAreaAtual().def().getNome());
                     } else {
@@ -236,6 +247,60 @@ public class Jogo {
             System.out.println("\nGame Over. Nível alcançado: " + jogador.getNivel());
             aguardarEnter(sc);
         }
+    }
+
+    /** 70% de chance de encontro; dentro disso, 10% vira mini-boss (FlageloSupremo). */
+    private static void tentarEncontro(Scanner sc, Personagem jogador, int idxArea) {
+        double roll = RNG.nextDouble();
+        if (roll <= 0.70) {
+            Personagem inimigo;
+            if (roll <= 0.07) {
+                inimigo = new FlageloSupremo(idxArea + 1);
+                System.out.println("\n⚠ Você encontrou um Mini-Boss: " + inimigo.getNome() + "!");
+            } else {
+                inimigo = inimigoAleatorio(idxArea);
+                System.out.println("\nUm inimigo aparece: " + inimigo.getNome() + "!");
+            }
+            iniciarCombate(sc, jogador, inimigo);
+        } else {
+            System.out.println("Você não encontrou resistência... por enquanto.");
+        }
+    }
+
+    /** Inicia o combate com o inimigo indicado. */
+    private static void iniciarCombate(Scanner sc, Personagem jogador, Personagem inimigo) {
+        Combate combate = new Combate(jogador, inimigo);
+        combate.iniciar();
+    }
+
+    /** Retorna um inimigo comum aleatório, escalado à área. */
+    private static Personagem inimigoAleatorio(int idxArea) {
+        int nivel = Math.max(1, idxArea + 1);
+        int pick = RNG.nextInt(4); // 0..3
+        return switch (pick) {
+            case 0 -> new FlageloGuerreiro(nivel);
+            case 1 -> new FlageloArqueiro(nivel);
+            case 2 -> new FlageloMago(nivel);
+            default -> new FlageloGigante(nivel);
+        };
+    }
+
+    /**
+     * Boss por área (índice):
+     * 0: Darius | 1: Trundle | 2: Sylas | 3: Lissandra | 4+: Volibear (pré-boss; segunda fase já tratada no Combate)
+     */
+    private static Personagem bossDaArea(int idxArea, int totalLiberadas) {
+        // Se esta é a última área liberada ou índice além do mapeado: Volibear
+        if (idxArea >= 4 || idxArea >= totalLiberadas - 1) {
+            return new Volibear();
+        }
+        return switch (idxArea) {
+            case 0 -> new Darius();
+            case 1 -> new Trundle();
+            case 2 -> new Sylas();
+            case 3 -> new Lissandra();
+            default -> new Volibear();
+        };
     }
 
     private static Personagem selecionarHeroi(Scanner sc) {

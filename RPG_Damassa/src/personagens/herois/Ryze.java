@@ -1,8 +1,15 @@
 package personagens.herois;
 
 import personagens.Personagem;
+import util.Combate;
+
 import java.util.Random;
 import java.util.Scanner;
+
+// INIMIGOS invocados pelo TP
+import personagens.inimigos.Garen;
+import personagens.inimigos.Kindred;
+import personagens.inimigos.Volibear;
 
 public class Ryze extends Personagem {
 
@@ -14,13 +21,16 @@ public class Ryze extends Personagem {
     public Ryze() {
         super("Ryze", "Mago", 29, 28, 8, 4, 1, 20);
     }
-    @Override public String[] intro() {
+
+    @Override
+    public String[] intro() {
         return new String[]{
                 "Runas antigas sussurram um presságio: o nome do urso esquecido.",
                 "Ryze conhece o preço do poder desmedido.",
                 "Vai recolher os fragmentos antes que destruam o mundo."
         };
     }
+
     public void atualizarEfeitos() {
         if (fluxoAtivo) {
             fluxoAtivo = false; // o efeito dura apenas 1 turno
@@ -90,7 +100,7 @@ public class Ryze extends Personagem {
                 }
             }
 
-            case 3 -> { // Poder do Arcano
+            case 3 -> { // Poder Infinito (buff)
                 if (!buffAtivo) {
                     buffAtivo = true;
                     turnosBuff = 2;
@@ -100,31 +110,37 @@ public class Ryze extends Personagem {
                     System.out.println("Ryze não consegue suportar mais do poder do arcano!");
                 }
             }
+
             case 4 -> { // Portais do Mundo
                 System.out.println(this.getNome() + " abre um PORTAL RÚNICO instável...");
-                double chance = random.nextDouble() * 100;
-
-                if (chance <= 0.05) {
-                    System.out.println("Ryze é lançado para DEMACIA! Um grito ecoa: 'PELA DEMACIA!'.");
-                    System.out.println("Uma nova batalha contra Garen começa!");
-                    // TODO: iniciarBatalha(new Garen());
-                    // Garen executa você quando tiver 10% de vida
-
-                } else if (chance <= 1.55) {
-                    System.out.println("Ryze é tragado pelo vazio rúnico...");
-                    System.out.println("Ele desperta no domínio dos KINDREDS — os Aspectos da Morte.");
-                    System.out.println("O Caçador sorri. O Cordeiro sussurra: 'Corra, se puder...'");
-                    // TODO: iniciarBatalha(new Kindred());
-                    // Os Kindreds serão imortais e com dano altíssimo (definido depois)
-                } else if (chance <= 6.55) {
-                    System.out.println("O portal ruge com trovões! Ryze é lançado diante de VOLIBEAR!");
-                    // TODO: iniciarBatalha(new Volibear());
-
-                } else {
-                    System.out.println("Ryze escapa com sucesso! O portal o leva para um local seguro.");
-                    // TODO: encerrarBatalha();
-                }
+                // Consome mana lá em cima; aqui apenas decide o efeito do portal.
+                // Regra nova: SEMPRE foge do combate atual (sem XP, sem 2ª fase).
+                // (Se quiser voltar a ter encontros especiais, a gente agenda fora do combate.)
+                this.sinalizarPortalFuga();
+                System.out.println("O espaço dobra, e você some do alcance do inimigo!");
             }
         }
     }
+
+    /** Dispara um combate “inline” usando a engine atual. */
+    private void iniciarBatalha(Personagem inimigo) {
+        System.out.println("\n=== ❖ PORTAL ABERTO: NOVO ENCONTRO ❖ ===");
+        Combate combate = new Combate(this, inimigo);
+        combate.iniciar(); // bloqueia aqui até terminar
+        System.out.println("=== ❖ PORTAL ENCERRADO ❖\n");
+    }
+
+    // ===== Flag interna para o Combate detectar fuga por portal =====
+    private boolean portalFuga = false;
+
+    public void sinalizarPortalFuga() {
+        this.portalFuga = true;
+    }
+
+    public boolean consumirFlagPortalFuga() {
+        boolean v = this.portalFuga;
+        this.portalFuga = false;
+        return v;
+    }
+
 }
