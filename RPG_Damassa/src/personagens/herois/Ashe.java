@@ -1,18 +1,17 @@
 package personagens.herois;
 
 import personagens.Personagem;
+import itens.base.EfeitoPorTurno;
 
 import java.util.Random;
 import java.util.Scanner;
 
-
 public class Ashe extends Personagem {
 
+    // Estado das flechas congeladas (é ligado/desligado automaticamente pelo efeito temporário)
     private boolean flechasCongeladasAtivas = false;
-    private int turnosCongelamento = 0;
-    private Random random = new Random();
-    private int turnosBuff = 0; // controla duração de buff de defesa
-    private int turnosDebuff = 0; // controla duração de debuff do inimigo
+
+    private final Random random = new Random();
 
     public Ashe() {
         super("Ashe", "Arqueira", 30, 18, 7, 4, 1, 20);
@@ -31,10 +30,11 @@ public class Ashe extends Personagem {
     public void usarHabilidade(Personagem alvo) {
         Scanner scanner = new Scanner(System.in);
         System.out.println("\nEscolha uma habilidade:");
-        System.out.println("1 -Enxurrada de Flechas (ataque físico com 70% do ataque - Ataca 3 vezes)");
-        System.out.println("2 - Flecha Congelada (Por 3 turnos, faz os ataques de Ashe terem chance de congelar o inimigo )");
-        System.out.println("3 - Disparo Preciso (Dispara uma flecha gigante congelada, possui chance de congelamento maior)");
+        System.out.println("1 - Enxurrada de Flechas (3 tiros, 70% do ATK cada; pode congelar se estiver encantada) - 4 PM");
+        System.out.println("2 - Flechas Congeladas (encanta por 3 turnos; ataques têm 25% de congelar) - 6 PM");
+        System.out.println("3 - Disparo Preciso (golpe pesado ~180% ATK; 50% de congelar) - 10 PM");
         System.out.print("Digite o número da habilidade: ");
+
         int escolha = scanner.nextInt();
 
         int custo = switch (escolha) {
@@ -51,46 +51,89 @@ public class Ashe extends Personagem {
 
         this.gastarMana(custo);
 
-        Random random = new Random();
-
         switch (escolha) {
-            case 1 -> { // Enxurrada de Flechas
-                System.out.println(this.getNome() + " dispara uma ENXURRADA DE FLECHAS!");
+            case 1 -> usarEnxurradaDeFlechas(alvo);
+            case 2 -> ativarFlechasCongeladas();
+            case 3 -> usarDisparoPreciso(alvo);
+            default -> System.out.println("Ashe hesita e abaixa o arco...");
+        }
 
-                for (int i = 1; i <= 3; i++) {
-                    int dano = (int) (this.getAtk() * 0.7) - alvo.getDef();
-                    if (dano < 0) dano = 0;
-                    alvo.setPv(alvo.getPv() - dano);
-                    System.out.println("Flecha " + i + " acerta " + alvo.getNome() + " causando " + dano + " de dano!");
+        System.out.println("PM restante: " + this.getPm() + "/" + this.getPmMax());
+    }
 
-                    if (flechasCongeladasAtivas) {
-                        int chanceCongelar = random.nextInt(100);
-                        if (chanceCongelar < 25) {
-                            alvo.setCongelado(true);
-                            System.out.println(alvo.getNome() + " foi CONGELADO pelas flechas gélidas!");
-                            break;
-                        }
-                    }
-                    try { Thread.sleep(400); } catch (InterruptedException ignored) {}
+    // ================== Habilidades ==================
+
+    /** 3 tiros de ~70% do ATK cada, enviando dano BRUTO para receberDano. */
+    private void usarEnxurradaDeFlechas(Personagem alvo) {
+        System.out.println(this.getNome() + " dispara uma ENXURRADA DE FLECHAS!");
+
+        for (int i = 1; i <= 3; i++) {
+            int danoBruto = (int) Math.round(this.getAtkEfetivo() * 0.70);
+            // (opcional) pequena variação: +/- 1
+            danoBruto += random.nextInt(3) - 1;
+
+            if (danoBruto < 1) danoBruto = 1;
+
+            alvo.receberDano(danoBruto);
+            System.out.println("Flecha " + i + " acerta " + alvo.getNome() + " causando " + danoBruto + " de dano bruto!");
+
+            // Chance de congelar se estiver com flechas encantadas
+            if (flechasCongeladasAtivas) {
+                int chance = random.nextInt(100); // 0..99
+                if (chance < 25) {
+                    alvo.setCongelado(true);
+                    System.out.println(alvo.getNome() + " foi CONGELADO pelas flechas gélidas!");
+                    // se congelou, não precisa interromper os tiros (mas pode, se quiser)
                 }
             }
 
-
-            case 2 -> { // Flechas Congeladas
-                System.out.println(this.getNome() + " Encanta seu arco com gelo, agora seus ataques podem congelar inimigo!");
-                flechasCongeladasAtivas = true;
-                turnosCongelamento = 3;
-            }
-
-            case 3 -> { // Disparo Preciso
-                int dano = (int) (this.getAtk() * 1.8) - alvo.getDef();
-                if (dano < 0) dano = 0;
-                alvo.setPv(alvo.getPv() - dano);
-                System.out.println(this.getNome() + " Dispara uma Flecha Precisa!");
-                System.out.println(alvo.getNome() + " sofreu " + dano + "de dano!");
-            }
-            default -> System.out.println("Ashe hesita e abaixa o arco...");
+            try { Thread.sleep(200); } catch (InterruptedException ignored) {}
         }
-        System.out.println("PM restante: " + this.getPm() + "/" + this.getPmMax());
+    }
+
+    /**
+     * Encanta o arco por 3 turnos. Enquanto ativo, ataques têm 25% de congelar.
+     * Usa um EfeitoPorTurno temporário para manter/desligar automaticamente.
+     */
+    private void ativarFlechasCongeladas() {
+        System.out.println(this.getNome() + " encanta o arco com gelo! Ataques podem congelar por 3 turnos.");
+
+        // Liga imediatamente
+        flechasCongeladasAtivas = true;
+
+        // Registra um efeito temporário de 3 turnos que mantém ligado e desliga ao expirar
+        this.adicionarEfeito(new EfeitoPorTurno() {
+            @Override
+            public void aoInicioDoTurno(Personagem self, Personagem adversario) {
+                // Enquanto o efeito existir, mantém ativo
+                flechasCongeladasAtivas = true;
+            }
+
+            @Override
+            public String toString() {
+                return "Encantamento: Flechas Congeladas";
+            }
+        }, 3);
+    }
+
+    /**
+     * Golpe pesado (~180% ATK) com 50% de chance de congelar.
+     * Envia dano BRUTO para receberDano; DEF é aplicada lá dentro (evitando “dupla DEF”).
+     */
+    private void usarDisparoPreciso(Personagem alvo) {
+        int danoBruto = (int) Math.round(this.getAtkEfetivo() * 1.80);
+        // pequena variação aleatória
+        danoBruto += random.nextInt(3) - 1;
+        if (danoBruto < 1) danoBruto = 1;
+
+        System.out.println(this.getNome() + " dispara uma FLECHA PRECISA!");
+        alvo.receberDano(danoBruto);
+        System.out.println(alvo.getNome() + " sofreu " + danoBruto + " de dano bruto!");
+
+        // 50% de chance de congelar
+        if (random.nextInt(100) < 50) {
+            alvo.setCongelado(true);
+            System.out.println(alvo.getNome() + " foi CONGELADO pelo impacto congelante!");
+        }
     }
 }

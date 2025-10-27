@@ -1,23 +1,24 @@
 package personagens.herois;
 
 import personagens.Personagem;
+import itens.base.EfeitoPorTurno;
+
 import java.util.Random;
 import java.util.Scanner;
 
 public class LeeSin extends Personagem {
 
-    private boolean escudoAtivo = false;
-    private int turnosEscudo = 0;
-    private boolean buffAtivo = false;
-    private double curaPorDano = 0.0;
-    private int turnosBuff = 0;
-    private boolean marcouAlvo = false; // para combo da Onda Sônica
-    private Random random = new Random();
+    // ===== Estados =====
+    private boolean safeguardAtivo = false;   // redução de dano e lifesteal do Safeguard
+    private boolean marcouAlvo = false;       // Onda Sônica -> habilita Golpe Resonante no próximo uso
+    private final Random random = new Random();
 
     public LeeSin() {
         super("Lee Sin", "Monge Cego", 38, 16, 8, 4, 1, 20);
     }
-    @Override public String[] intro() {
+
+    @Override
+    public String[] intro() {
         return new String[]{
                 "Lee Sin não vê o gelo, mas sente o peso do silêncio.",
                 "O mundo segura a respiração antes do trovão.",
@@ -25,37 +26,13 @@ public class LeeSin extends Personagem {
         };
     }
 
-    public void atualizarEfeitos() {
-        if (escudoAtivo) {
-            turnosEscudo--;
-            if (turnosEscudo <= 0) {
-                escudoAtivo = false;
-                System.out.println("A energia protetora de Lee Sin se dissipa.");
-            }
-        }
-
-        if (buffAtivo) {
-            turnosBuff--;
-            if (turnosBuff <= 0) {
-                buffAtivo = false;
-                this.setAtk(this.getAtk() - 3);
-                this.setDef(this.getDef() - 2);
-                System.out.println("O foco interior de Lee Sin se desfaz.");
-            }
-        }
-
-        if (marcouAlvo) {
-            System.out.println("Lee Sin ainda sente o eco do som do inimigo...");
-        }
-    }
-
     @Override
     public void usarHabilidade(Personagem alvo) {
         Scanner scanner = new Scanner(System.in);
         System.out.println("\nEscolha a habilidade de Lee Sin:");
-        System.out.println("1 - Onda Sônica / Golpe Resonante (combo de 2 etapas) - Custo: 6 PM");
-        System.out.println("2 - Guarda-alta (escudo e cura) - Custo: 8 PM");
-        System.out.println("3 - Foco Interior (buff +3 ATK e +2 DEF por 3 turnos) - Custo: 7 PM");
+        System.out.println("1 - Onda Sônica / Golpe Resonante (combo) - 6 PM");
+        System.out.println("2 - Safeguard (2T: -50% dano recebido + 20% vampirismo) - 8 PM");
+        System.out.println("3 - Foco Interior (+3 ATK e +2 DEF por 3T) - 7 PM");
         System.out.print("Digite o número da habilidade: ");
         int escolha = scanner.nextInt();
 
@@ -74,68 +51,134 @@ public class LeeSin extends Personagem {
         this.gastarMana(custo);
 
         switch (escolha) {
-            case 1 -> {
-                int dano;
-
-                if (!marcouAlvo) {
-                    dano = (int) (this.getAtk() * 1.3) - alvo.getDef();
-                    if (dano < 0) dano = 0;
-                    marcouAlvo = true;
-                    System.out.println(this.getNome() + " lança uma ONDA SÔNICA!");
-                    System.out.println(alvo.getNome() + " sofre " + dano + " de dano!");
-                    System.out.println("O som do inimigo ecoa na mente de Lee Sin...");
-                } else {
-                    dano = (int) (this.getAtk() * 2.0) - alvo.getDef();
-                    if (dano < 0) dano = 0;
-                    marcouAlvo = false;
-                    System.out.println(this.getNome() + " segue o som e executa o GOLPE RESONANTE!");
-                    System.out.println(alvo.getNome() + " sofre " + dano + " de dano crítico!");
-                }
-                alvo.setPv(alvo.getPv() - dano);
-                if (escudoAtivo && dano > 0) {
-                    int cura = (int) (dano * curaPorDano);
-                    this.setPv(this.getPv() + cura);
-                    System.out.println("Safeguard: Lee Sin canaliza a energia do impacto e recupera " + cura + " PV!");
-                }
-            }
-
-            case 2 -> { // Safeguard
-                if (!escudoAtivo) {
-                    escudoAtivo = true;
-                    turnosEscudo = 2;
-                    int cura = (int) (this.getPvMax() * 0.1);
-                    this.setPv(this.getPv() + cura);
-                    System.out.println(this.getNome() + " canaliza o SAFEGUARD! Reduz dano e cura " + cura + " PV.");
-                } else {
-                    System.out.println("O Safeguard já está ativo!");
-                }
-            }
-
-            case 3 -> { // Foco Interior
-                if (!buffAtivo) {
-                    buffAtivo = true;
-                    turnosBuff = 3;
-                    this.setAtk(this.getAtk() + 3);
-                    this.setDef(this.getDef() + 2);
-                    System.out.println(this.getNome() + " entra em estado de FOCO INTERIOR!");
-                    System.out.println("Seu corpo e mente estão em perfeita harmonia.");
-                } else {
-                    System.out.println("Lee Sin já está focado.");
-                }
-            }
-
+            case 1 -> ondaSonicaOuGolpeResonante(alvo);
+            case 2 -> safeguard();
+            case 3 -> focoInterior();
             default -> System.out.println("Lee Sin respira fundo e aguarda o momento certo...");
         }
 
         System.out.println("PM restante: " + this.getPm() + "/" + this.getPmMax());
     }
 
+    // ================== Habilidades ==================
+
+    /**
+     * Primeira vez: Onda Sônica (~130% ATK bruto), marca o alvo.
+     * Se já marcado: Golpe Resonante (~200% ATK bruto) e consome a marca.
+     * Dano é enviado como BRUTO; a DEF é aplicada em Personagem.receberDano (evita dupla DEF).
+     * Enquanto Safeguard ativo, cura 20% do dano causado.
+     */
+    private void ondaSonicaOuGolpeResonante(Personagem alvo) {
+        if (!marcouAlvo) {
+            int danoBruto = (int) Math.round(this.getAtkEfetivo() * 1.30);
+            // variação leve
+            danoBruto += random.nextInt(3) - 1;
+            if (danoBruto < 1) danoBruto = 1;
+
+            System.out.println(this.getNome() + " lança uma ONDA SÔNICA!");
+            alvo.receberDano(danoBruto);
+            System.out.println("O som do inimigo ecoa — alvo MARCADO.");
+
+            // lifesteal do safeguard (20% do dano bruto aproximado)
+            if (safeguardAtivo) {
+                int cura = Math.max(1, (int) Math.round(danoBruto * 0.20));
+                this.setPv(this.getPv() + cura);
+                System.out.println(this.getNome() + " canaliza o impacto e recupera " + cura + " PV (Safeguard).");
+            }
+
+            marcouAlvo = true;
+        } else {
+            int danoBruto = (int) Math.round(this.getAtkEfetivo() * 2.00);
+            // variação leve
+            danoBruto += random.nextInt(5) - 2;
+            if (danoBruto < 1) danoBruto = 1;
+
+            System.out.println(this.getNome() + " segue o som e executa o GOLPE RESONANTE!");
+            alvo.receberDano(danoBruto);
+            System.out.println("O impacto reverbera através do alvo!");
+
+            if (safeguardAtivo) {
+                int cura = Math.max(1, (int) Math.round(danoBruto * 0.20));
+                this.setPv(this.getPv() + cura);
+                System.out.println(this.getNome() + " converte força em vida: +" + cura + " PV (Safeguard).");
+            }
+
+            marcouAlvo = false; // consome a marca
+        }
+    }
+
+    /**
+     * Safeguard: por 2 turnos, -50% do dano recebido e 20% de vampirismo ofensivo.
+     * Implementado com EfeitoPorTurno para ligar/desligar automaticamente.
+     * Aplica também uma cura imediata leve (10% PV máx).
+     */
+    private void safeguard() {
+        System.out.println(this.getNome() + " canaliza o SAFEGUARD! (-50% dano recebido, 20% vampirismo por 2T)");
+        int cura = Math.max(1, (int) Math.round(this.getPvMax() * 0.10));
+        this.setPv(this.getPv() + cura);
+        System.out.println("A energia protetora cura " + cura + " PV.");
+
+        this.safeguardAtivo = true;
+        this.adicionarEfeito(new EfeitoPorTurno() {
+            private int restantes = 2;
+
+            @Override
+            public void aoInicioDoTurno(Personagem self, Personagem adversario) {
+                // mantém ativo enquanto durar
+                ((LeeSin) self).safeguardAtivo = true;
+
+                restantes--;
+                if (restantes == 0) {
+                    ((LeeSin) self).safeguardAtivo = false;
+                    System.out.println("O Safeguard de Lee Sin se dissipa.");
+                }
+            }
+
+            @Override
+            public String toString() {
+                return "Safeguard (-50% dano recebido, 20% vampirismo)";
+            }
+        }, 2);
+    }
+
+    /**
+     * +3 ATK e +2 DEF por 3 turnos, com restauração automática.
+     */
+    private void focoInterior() {
+        System.out.println(this.getNome() + " entra em estado de FOCO INTERIOR! (+3 ATK | +2 DEF por 3T)");
+
+        // aplica imediatamente
+        this.setAtk(this.getAtk() + 3);
+        this.addDef(+2);
+
+        this.adicionarEfeito(new EfeitoPorTurno() {
+            private int restantes = 3;
+
+            @Override
+            public void aoInicioDoTurno(Personagem self, Personagem adversario) {
+                restantes--;
+                if (restantes == 0) {
+                    // restaura
+                    self.setAtk(Math.max(0, self.getAtk() - 3));
+                    self.addDef(-2);
+                    System.out.println("O foco interior de Lee Sin se desfaz.");
+                }
+            }
+
+            @Override
+            public String toString() {
+                return "Foco Interior (+3 ATK | +2 DEF)";
+            }
+        }, 3);
+    }
+
+    // ===== Receber dano com Safeguard =====
+
     @Override
     public void receberDano(int danoBruto) {
-        if (escudoAtivo) {
-            danoBruto /= 2;
+        if (safeguardAtivo) {
+            danoBruto = Math.max(1, danoBruto / 2); // reduz 50% do dano BRUTO
         }
-        super.receberDano(danoBruto);
+        super.receberDano(danoBruto); // DEF aplicada aqui
     }
 }
-
