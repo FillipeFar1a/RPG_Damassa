@@ -4,36 +4,37 @@ import personagens.Personagem;
 
 public class Kindred extends Personagem {
 
-    public Kindred(int nivelJogador) {
+    // ✔ Construtor sem argumentos (para spawns globais)
+    public Kindred() {
+        this(5); // nível/escala padrão de spawn; ajuste se quiser
+    }
+
+    // ✔ Construtor com escala (usado pelo Ryze ao teletransportar)
+    public Kindred(int escala) {
         super(
                 "Kindred",
-                "A Morte",
-                690 + 8 * Math.max(1, nivelJogador),
-                80  + 4 * Math.max(1, nivelJogador),
-                28  + 2 * Math.max(1, nivelJogador),
-                14  + 2 * Math.max(1, nivelJogador),
-                Math.max(1, nivelJogador + 2),
+                "Aspectos da Morte",
+                80 + 10 * Math.max(1, escala), // PV
+                50,                             // PM (não usa muito, mas ok)
+                25 + 2 * Math.max(1, escala),   // ATK
+                8 + Math.max(0, escala / 2),    // DEF
+                Math.max(1, escala),
                 50
         );
     }
 
     @Override
     public String[] intro() {
-        return new String[] {
-                "— \"Toda caçada precisa de um fim.\"",
-                "Você sente um arrepio: o Cordeiro aponta, o Lobo sorri.",
-                "A Morte não chegou cedo. Chegou na hora."
+        return new String[]{
+                "— O Caçador ri. O Cordeiro sussurra: corra.",
+                "Você sente que a morte já decidiu."
         };
     }
 
-    /**
-     * IK garantido: ceifa imediatamente o alvo (PV → 0), ignorando DEF, PV atual etc.
-     * Dica: se quiser “contrajogo”, trate imunidades específicas no Combate (ex.: fase de invulnerabilidade).
-     */
     @Override
     public void usarHabilidade(Personagem alvo) {
-        System.out.println(getNome() + " marca " + alvo.getNome() + "...");
-        System.out.println("— Cordeiro: \"Agora.\"  Lobo: *rosna*");
+        System.out.println(getNome() + " marca " + alvo.getNome() + " com a Flecha da Morte.");
+        System.out.println("Não há esquiva, não há refúgio...");
         alvo.setPv(0); // IK
     }
 }

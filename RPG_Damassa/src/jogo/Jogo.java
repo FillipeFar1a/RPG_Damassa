@@ -64,7 +64,7 @@ public class Jogo {
         while (rodando) {
             Efeitos.limparTela();
 
-            System.out.println("===== RPG: THOUSAND PIERCED =====");
+            System.out.println("======= RPG: MIL FLAGELOS =======");
             System.out.println("Uma história de League of Legends");
             System.out.println();
             System.out.println("        -Feito por Fillipe e Hugo");
@@ -205,7 +205,8 @@ public class Jogo {
                     // Antes de avançar, se a área puder avançar, enfrenta o BOSS da área atual
                     if (mundo.podeAvancar()) {
                         int idxAtual = mundo.getAreaAtualIndex();
-                        Personagem boss = bossDaArea(idxAtual, mundo.getUnlockedCount());
+                        // >>> CORREÇÃO: usa total de áreas reais do mundo, não "liberadas"
+                        Personagem boss = bossDaArea(idxAtual, mundo.getAreas().size());
                         System.out.println("\n⚠ Você sente uma presença poderosa bloqueando seu caminho...");
                         iniciarCombate(sc, jogador, boss);
                         if (!jogador.vivo()) {
@@ -287,11 +288,11 @@ public class Jogo {
 
     /**
      * Boss por área (índice):
-     * 0: Darius | 1: Trundle | 2: Sylas | 3: Lissandra | 4+: Volibear (pré-boss; segunda fase já tratada no Combate)
+     * 0: Darius | 1: Trundle | 2: Sylas | 3: Lissandra | último índice (size-1): Volibear
      */
-    private static Personagem bossDaArea(int idxArea, int totalLiberadas) {
-        // Se esta é a última área liberada ou índice além do mapeado: Volibear
-        if (idxArea >= 4 || idxArea >= totalLiberadas - 1) {
+    private static Personagem bossDaArea(int idxArea, int totalAreas) {
+        int ultimoIndice = Math.max(0, totalAreas - 1);
+        if (idxArea >= ultimoIndice) {
             return new Volibear();
         }
         return switch (idxArea) {
