@@ -25,10 +25,13 @@ public class Garen extends Personagem {
      * IA da habilidade:
      * - Se o alvo estiver com PV <= 10% do PV máximo: EXECUTA (IK) — Justiça Demaciana.
      * - Caso contrário: Julgamento — golpe pesado (ATK efetivo + 10) ignorando 30% da DEF do alvo.
+     *
+     * Observação: como Personagem.receberDano já subtrai a DEF inteira,
+     * para simular "ignorar 30% da DEF" somamos essa parte ao dano BRUTO.
      */
     @Override
     public void usarHabilidade(Personagem alvo) {
-        int limiteExec = Math.max(1, (int)Math.floor(alvo.getPvMax() * 0.10));
+        int limiteExec = Math.max(1, (int) Math.floor(alvo.getPvMax() * 0.10));
 
         if (alvo.getPv() <= limiteExec) {
             System.out.println(getNome() + " ergue a espada: \"Justiça Demaciana!\"");
@@ -36,13 +39,11 @@ public class Garen extends Personagem {
             return;
         }
 
-        // Julgamento (spin)
-        int defIgnorada = (int)Math.floor(alvo.getDef() * 0.30);
-        int defEfetiva = Math.max(0, alvo.getDef() - defIgnorada);
-        int danoBruto = getAtkEfetivo() + 10;
-        int danoFinal = Math.max(1, danoBruto - defEfetiva);
+        // Julgamento (spin) — ignora 30% da DEF do alvo
+        int defIgnorada = (int) Math.floor(alvo.getDef() * 0.30);
+        int danoBruto = getAtkEfetivo() + 10 + defIgnorada; // compensa a DEF ignorada
 
         System.out.println(getNome() + " gira em fúria — JULGAMENTO!");
-        alvo.receberDano(danoFinal);
+        alvo.receberDano(danoBruto); // DEF será aplicada aqui (efetivamente 70% da DEF)
     }
 }

@@ -207,14 +207,13 @@ public class Combate {
 
     private void ataqueComDado(Personagem atacante, Personagem defensor) {
         int rolagem = random.nextInt(6) + 1; // d6
-        int danoBase = atacante.getAtkEfetivo() + rolagem; // usa ATK efetivo (com buffs/debuffs do turno)
-        int danoFinal = Math.max(1, danoBase - defensor.getDef());
-
-        defensor.receberDano(danoFinal);
+        int danoBruto = atacante.getAtkEfetivo() + rolagem; // SEM subtrair DEF aqui
+        defensor.receberDano(danoBruto); // a DEF é aplicada dentro de Personagem.receberDano
 
         System.out.println(atacante.getNome() + " rola um d6 e tira " + rolagem + "!");
-        System.out.println(atacante.getNome() + " ataca causando " + danoFinal + " de dano!");
+        System.out.println(atacante.getNome() + " ataca causando dano bruto " + danoBruto + " (a DEF reduz o dano).");
     }
+
 
     private boolean tentarFugir() {
         int r = random.nextInt(6) + 1; // d6

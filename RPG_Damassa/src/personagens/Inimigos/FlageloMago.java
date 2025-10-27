@@ -6,8 +6,8 @@ import java.util.concurrent.ThreadLocalRandom;
 public class FlageloMago extends Personagem {
     public FlageloMago(int nivelArea) {
         super("Flagelo Mago", "Inimigo",
-                32 + 5*nivelArea, 30 + 5*nivelArea,
-                13 + 3*nivelArea, 5 + 2*nivelArea,
+                 10 + 5*nivelArea, 30 + 5*nivelArea,
+                5 + 3*nivelArea, 5 + 2*nivelArea,
                 Math.max(1, nivelArea), 10);
     }
 

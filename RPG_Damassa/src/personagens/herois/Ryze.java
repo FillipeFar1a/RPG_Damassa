@@ -74,18 +74,16 @@ public class Ryze extends Personagem {
 
         switch (escolha) {
             case 1 -> { // Descarga Rúnica
-                int danoBase = (int) (this.getAtk() * 1.2) - alvo.getDef();
+                int danoBruto = (int)Math.round(this.getAtk() * 1.2);
                 if (fluxoAtivo) {
-                    danoBase *= 2;
+                    danoBruto *= 2;
                     System.out.println("⚡ As runas reagem! Descarga Rúnica amplificada!");
                     fluxoAtivo = false;
                 }
-
-                if (danoBase < 0) danoBase = 0;
-                alvo.setPv(alvo.getPv() - danoBase);
+                alvo.receberDano(danoBruto); // DEF será aplicada dentro de receberDano
                 System.out.println(this.getNome() + " lança uma DESCARGA RÚNICA!");
-                System.out.println(alvo.getNome() + " sofre " + danoBase + " de dano mágico!");
             }
+
 
             case 2 -> { // Fluxo Rúnico
                 if (fluxoAtivo) {
