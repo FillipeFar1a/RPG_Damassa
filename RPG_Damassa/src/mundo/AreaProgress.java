@@ -1,6 +1,9 @@
 package mundo;
 
+import personagens.inimigos.*;
+import personagens.Personagem;
 import java.io.Serializable;
+import java.util.*;
 
 /** Estado do jogador em UMA área. */
 public class AreaProgress implements Serializable {

@@ -28,7 +28,7 @@ public class Gragas extends Personagem {
         Scanner scanner = new Scanner(System.in);
         System.out.println("\nEscolha a habilidade de Gragas:");
         System.out.println("1 - Golpe de Barril (150% ATK; 30% de atordoar) - 6 PM");
-        System.out.println("2 - Bebedeira (cura 20% PV e +4 DEF por 2 turnos) - 8 PM");
+        System.out.println("2 - Dar um gole (cura 20% PV e +4 DEF por 2 turnos) - 8 PM");
         System.out.println("3 - Barril Explosivo (200% ATK; 40% de atordoar; -2 DEF do alvo por 2 turnos) - 7 PM");
         System.out.print("Digite o número da habilidade: ");
         int escolha = scanner.nextInt();
@@ -49,7 +49,7 @@ public class Gragas extends Personagem {
 
         switch (escolha) {
             case 1 -> golpeDeBarril(alvo);
-            case 2 -> bebedeira();
+            case 2 -> darUmGole();
             case 3 -> barrilExplosivo(alvo);
             default -> System.out.println("Gragas se atrapalha com o barril e perde o turno...");
         }
@@ -75,7 +75,7 @@ public class Gragas extends Personagem {
     }
 
     /** Cura 20% do PV máx e concede +4 DEF por 2 turnos (restaura automaticamente ao fim). */
-    private void bebedeira() {
+    private void darUmGole() {
         int cura = Math.max(1, (int)Math.round(this.getPvMax() * 0.20));
         this.setPv(this.getPv() + cura);
         System.out.println(this.getNome() + " dá um gole fundo! Recupera " + cura + " PV.");
@@ -92,13 +92,13 @@ public class Gragas extends Personagem {
                 restantes--;
                 if (restantes == 0) {
                     self.addDef(-4);
-                    System.out.println("O efeito da bebedeira passa. A DEF extra de Gragas se dissipa.");
+                    System.out.println("Gragas volta a ficar com sede. A DEF extra de Gragas se dissipa.");
                 }
             }
 
             @Override
             public String toString() {
-                return "Bebedeira (+4 DEF)";
+                return "Dar um gole (+4 DEF)";
             }
         }, 2);
     }
