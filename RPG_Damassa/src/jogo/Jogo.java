@@ -92,6 +92,7 @@ public class Jogo {
         Efeitos.textoDigitando(jogador.intro(), 28, 650);
         System.out.println("\n[Pressione Enter para começar a jornada]");
         sc.nextLine();
+<<<<<<< Updated upstream
 
         // Cena inicial (TEXTOS MANTIDOS)
         Efeitos.limparTela();
@@ -103,6 +104,8 @@ public class Jogo {
         System.out.println("\n[Pressione Enter para continuar]");
         sc.nextLine();
 
+=======
+>>>>>>> Stashed changes
         Efeitos.limparTela();
         String[] cena2 = {
                 "CENÁRIO: ",
@@ -120,7 +123,6 @@ public class Jogo {
         sc.nextLine();
         Efeitos.limparTela();
         String[] cena3 = {
-                "Agora não tem mais volta...",
                 "A sua jornada para deter o Urso de Mil Flagelos...",
                 "Começa agora!"
         };
