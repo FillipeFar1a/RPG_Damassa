@@ -1,12 +1,14 @@
 package personagens;
 
-import personagens.herois.Aurora;
-
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-import itens.base.EfeitoPorTurno;
+
+import itens.Inventario;
+import itens.Item;
+// usa a interface no mesmo pacote "personagens"
+import personagens.EfeitoPorTurno;
 
 public abstract class Personagem implements Serializable {
     protected String nome;
@@ -16,14 +18,16 @@ public abstract class Personagem implements Serializable {
     protected int atk, def;
     protected int nivel, xp, xpMax;
 
-    // --- modificadores temporários de turno (ex.: debuffs/buffs de ataque) ---
+    // ===== INVENTÁRIO =====
+    protected Inventario inventario = new Inventario();
+
+    // ===== MODIFICADORES TEMPORÁRIOS (resetar no começo de cada turno) =====
     private int bonusAtkTemporario = 0;
 
-    // --- efeitos por turno ---
-    private final List<EfeitoPorTurno> efeitosPermanentes = new ArrayList<>(); // ex.: equipamentos
-    private final List<EfeitoTemporario> efeitosTemporarios = new ArrayList<>(); // ex.: consumíveis com duração
+    // ===== EFEITOS POR TURNO =====
+    private final List<EfeitoPorTurno> efeitosPermanentes = new ArrayList<>();
+    private final List<EfeitoTemporario> efeitosTemporarios = new ArrayList<>();
 
-    // Classe de apoio para efeitos temporários (com duração)
     private static class EfeitoTemporario implements Serializable {
         final EfeitoPorTurno efeito;
         int turnosRestantes;
@@ -42,6 +46,67 @@ public abstract class Personagem implements Serializable {
         this.nivel = nivel; this.xp = 0; this.xpMax = xpMax;
     }
 
+    // ===== Inventário
+    public Inventario getInventario() { return inventario; }
+    public void adicionarItem(Item item) { if (item != null) inventario.adicionar(item); }
+    public void adicionarItem(String nome, String desc, Item.Efeito efeito, int qtd) {
+        inventario.adicionar(nome, desc, efeito, qtd);
+    }
+
+    /** Usa 1 unidade do item pelo nome+efeito e aplica efeito imediato. */
+    public boolean usarItem(String nomeItem, Item.Efeito efeito) {
+        Item usado = inventario.usarUm(nomeItem, efeito);
+        if (usado == null) return false;
+        aplicarItem(usado);
+        return true;
+    }
+
+    /** Aplica o item (valores simples; ajuste depois no balance). */
+    protected void aplicarItem(Item item) {
+        if (item == null) return;
+        switch (item.getEfeito()) {
+            case CURA       -> curar(20);
+            case MANA       -> recuperarMana(15);
+            case ATAQUE     -> this.bonusAtkTemporario += 5;  // dura até fim do turno (reset no início)
+            case DEFESA     -> this.addDef(+5);               // simples; se quiser com duração, use efeito temporário
+            case BUFF_GERAL -> {
+                curar(10);
+                recuperarMana(10);
+                this.bonusAtkTemporario += 3;
+                this.addDef(+3);
+            }
+        }
+    }
+
+    // ===== Buff de turno
+    public void modificarAtaqueTemporario(int delta) { this.bonusAtkTemporario += delta; }
+    /** Chame no INÍCIO do turno deste personagem (ex.: no Combate). */
+    public void resetModificadoresDeTurno() { this.bonusAtkTemporario = 0; }
+    public int getAtkEfetivo() { return Math.max(0, this.atk + this.bonusAtkTemporario); }
+
+    // ===== Efeitos por turno
+    public void registrarEfeitoPorTurno(EfeitoPorTurno e) { if (e != null) efeitosPermanentes.add(e); }
+    public void removerEfeitoPorTurno(EfeitoPorTurno e) { efeitosPermanentes.remove(e); }
+    public void adicionarEfeito(EfeitoPorTurno e, int turnos) {
+        if (e != null && turnos > 0) efeitosTemporarios.add(new EfeitoTemporario(e, turnos));
+    }
+
+    /** Início do turno: aplica permanentes e temporários; decrementar duração. */
+    public void processarEfeitosInicioDoTurno(Personagem adversario) {
+        resetModificadoresDeTurno();
+        for (EfeitoPorTurno e : efeitosPermanentes) e.aoInicioDoTurno(this, adversario);
+        Iterator<EfeitoTemporario> it = efeitosTemporarios.iterator();
+        while (it.hasNext()) {
+            EfeitoTemporario et = it.next();
+            et.efeito.aoInicioDoTurno(this, adversario);
+            if (--et.turnosRestantes <= 0) it.remove();
+        }
+    }
+
+    // ===== utilitário que os heróis já usam
+    public void addDef(int delta) { this.def = Math.max(0, this.def + delta); }
+
+    // ===== Regras básicas
     public boolean vivo() { return pv > 0; }
 
     public void receberDano(int danoBruto) {
@@ -49,15 +114,12 @@ public abstract class Personagem implements Serializable {
         this.pv = Math.max(0, this.pv - dano);
     }
 
-    public void curar(int valor) { this.pv = Math.min(pvMax, pv + valor); }
-
-    // novo utilitário para itens que regeneram mana por rodada
+    public void curar(int valor) { this.pv = Math.min(pvMax, pv + Math.max(0, valor)); }
     public void recuperarMana(int valor) { this.pm = Math.min(pmMax, pm + Math.max(0, valor)); }
-
-    public void gastarMana(int custo) { this.pm = Math.max(0, pm - custo); }
+    public void gastarMana(int custo) { this.pm = Math.max(0, pm - Math.max(0, custo)); }
 
     public void ganharXp(int valor) {
-        xp += valor;
+        xp += Math.max(0, valor);
         while (xp >= xpMax) {
             xp -= xpMax;
             subirNivel();
@@ -70,56 +132,9 @@ public abstract class Personagem implements Serializable {
         pv = pvMax; pm = pmMax; xpMax += 5;
     }
 
-    // ====== modificadores de ataque de turno ======
-    public void modificarAtaqueTemporario(int delta) { this.bonusAtkTemporario += delta; }
-    public void resetModificadoresDeTurno() { this.bonusAtkTemporario = 0; }
-    public int getAtkEfetivo() { return Math.max(0, this.atk + this.bonusAtkTemporario); }
-
-    // ====== API de efeitos por turno ======
-    /** Efeitos "permanentes" (ex.: equipamentos enquanto equipados). */
-    public void registrarEfeitoPorTurno(EfeitoPorTurno e) {
-        if (e != null) efeitosPermanentes.add(e);
-    }
-
-    public void removerEfeitoPorTurno(EfeitoPorTurno e) {
-        efeitosPermanentes.remove(e);
-    }
-
-    /** Efeitos temporários (ex.: consumíveis como Gelo Verdadeiro). */
-    public void adicionarEfeito(EfeitoPorTurno e, int turnos) {
-        if (e != null && turnos > 0) efeitosTemporarios.add(new EfeitoTemporario(e, turnos));
-    }
-
-    /**
-     * Chamar no INÍCIO do turno deste personagem.
-     * Aplica efeitos permanentes e temporários e decrementa a duração dos temporários.
-     */
-    public void processarEfeitosInicioDoTurno(Personagem adversario) {
-        // zera modificadores de turno antes de aplicar efeitos
-        resetModificadoresDeTurno();
-
-        // permanentes
-        for (EfeitoPorTurno e : efeitosPermanentes) {
-            e.aoInicioDoTurno(this, adversario);
-        }
-
-        // temporários (com duração)
-        Iterator<EfeitoTemporario> it = efeitosTemporarios.iterator();
-        while (it.hasNext()) {
-            EfeitoTemporario et = it.next();
-            et.efeito.aoInicioDoTurno(this, adversario);
-            et.turnosRestantes--;
-            if (et.turnosRestantes <= 0) it.remove();
-        }
-    }
-
-    // ====== pequenos utilitários para equipamentos (sem quebrar nada) ======
-    public void addDef(int delta) { this.def = Math.max(0, this.def + delta); }
-
-    // ---- gancho para intro por herói
     public abstract String[] intro();
 
-    // ---- getters úteis
+    // getters
     public String getNome() { return nome; }
     public String getClasse() { return classe; }
     public int getPv() { return pv; }
@@ -132,37 +147,13 @@ public abstract class Personagem implements Serializable {
     public int getXp() { return xp; }
     public int getXpMax() { return xpMax; }
 
-    // --- SETTERS compatíveis com os atributos existentes ---
-
-    public void setPv(int pv) {
-        if (pv < 0) pv = 0;
-        if (pv > pvMax) pv = pvMax;
-        this.pv = pv;
-    }
-
-    public void setPm(int pm) {
-        if (pm < 0) pm = 0;
-        if (pm > pmMax) pm = pmMax;
-        this.pm = pm;
-    }
-
-    public void setAtk(int atk) {
-        if (atk < 0) atk = 0;
-        this.atk = atk;
-    }
-
-    public void setDef(int def) {
-        if (def < 0) def = 0;
-        this.def = def;
-    }
-
-    public void setNivel(int nivel) {
-        this.nivel = Math.max(1, nivel);
-    }
-
-    public void setXp(int xp) {
-        this.xp = Math.max(0, xp);
-    }
+    // setters simples
+    public void setPv(int pv) { this.pv = Math.max(0, Math.min(pv, pvMax)); }
+    public void setPm(int pm) { this.pm = Math.max(0, Math.min(pm, pmMax)); }
+    public void setAtk(int atk) { this.atk = Math.max(0, atk); }
+    public void setDef(int def) { this.def = Math.max(0, def); }
+    public void setNivel(int nivel) { this.nivel = Math.max(1, nivel); }
+    public void setXp(int xp) { this.xp = Math.max(0, xp); }
 
     @Override
     public String toString() {
@@ -174,13 +165,8 @@ public abstract class Personagem implements Serializable {
 
     public abstract void usarHabilidade(Personagem alvo);
 
+    // congelado (se tua lógica usa)
     protected boolean congelado = false;
-
-    public boolean isCongelado() {
-        return congelado;
-    }
-
-    public void setCongelado(boolean congelado) {
-        this.congelado = congelado;
-    }
+    public boolean isCongelado() { return congelado; }
+    public void setCongelado(boolean congelado) { this.congelado = congelado; }
 }

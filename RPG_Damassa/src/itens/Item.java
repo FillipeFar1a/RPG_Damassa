@@ -1,51 +1,80 @@
 package itens;
 
+import java.io.Serializable;
 import java.util.Objects;
 
-public class Item implements Comparable<Item>, Cloneable {
-    private final String nome;
-    private final String descricao;
-    private final String efeito; // "cura", "atk+", etc.
+public class Item implements Comparable<Item>, Cloneable, Serializable {
+
+    public enum Efeito {
+        CURA, MANA, ATAQUE, DEFESA, BUFF_GERAL
+    }
+
+    private String nome;
+    private String descricao;
+    private Efeito efeito;
     private int quantidade;
 
-    public Item(String nome, String descricao, String efeito, int quantidade) {
+    public Item() { }
+
+    public Item(String nome, String descricao, Efeito efeito, int quantidade) {
         this.nome = nome;
         this.descricao = descricao;
         this.efeito = efeito;
         this.quantidade = Math.max(0, quantidade);
     }
 
+    // Construtor de cópia
+    public Item(Item other) {
+        this(other.nome, other.descricao, other.efeito, other.quantidade);
+    }
+
     public String getNome() { return nome; }
     public String getDescricao() { return descricao; }
-    public String getEfeito() { return efeito; }
+    public Efeito getEfeito() { return efeito; }
     public int getQuantidade() { return quantidade; }
 
-    public void adicionar(int q) { this.quantidade += Math.max(0, q); }
-    public boolean consumir(int q) {
-        if (quantidade >= q) { quantidade -= q; return true; }
+    public void setQuantidade(int q) { this.quantidade = Math.max(0, q); }
+    public void incrementar(int q) { this.quantidade = Math.max(0, this.quantidade + q); }
+
+    public boolean decrementarUm() {
+        if (quantidade > 0) { quantidade--; return true; }
         return false;
     }
 
-    // Mesmo item = mesmo nome + efeito (padrão didático)
-    @Override public boolean equals(Object o) {
+    // Itens iguais: mesmo nome (case-insensitive) + mesmo efeito
+    @Override
+    public boolean equals(Object o) {
         if (this == o) return true;
         if (!(o instanceof Item i)) return false;
-        return nome.equalsIgnoreCase(i.nome) && efeito.equalsIgnoreCase(i.efeito);
-    }
-    @Override public int hashCode() {
-        return Objects.hash(nome.toLowerCase(), efeito.toLowerCase());
-    }
-
-    // Ordena por nome
-    @Override public int compareTo(Item i) {
-        return this.nome.compareToIgnoreCase(i.nome);
+        return efeito == i.efeito &&
+                nome != null && i.nome != null &&
+                nome.equalsIgnoreCase(i.nome);
     }
 
-    @Override public Item clone() {
-        return new Item(nome, descricao, efeito, quantidade);
+    @Override
+    public int hashCode() {
+        return Objects.hash(efeito, nome == null ? null : nome.toLowerCase());
     }
 
-    @Override public String toString() {
-        return nome + " (" + efeito + ") x" + quantidade;
+    // Ordena por nome e depois por efeito
+    @Override
+    public int compareTo(Item o) {
+        int byNome = String.CASE_INSENSITIVE_ORDER.compare(
+                this.nome == null ? "" : this.nome,
+                o.nome == null ? "" : o.nome
+        );
+        if (byNome != 0) return byNome;
+        return this.efeito.compareTo(o.efeito);
+    }
+
+    @Override
+    public Item clone() {
+        try { return (Item) super.clone(); }
+        catch (CloneNotSupportedException e) { return new Item(this); }
+    }
+
+    @Override
+    public String toString() {
+        return String.format("%s x%d (%s) — %s", nome, quantidade, efeito, descricao);
     }
 }

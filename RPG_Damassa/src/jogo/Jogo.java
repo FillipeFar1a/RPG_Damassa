@@ -18,11 +18,16 @@ import personagens.inimigos.FlageloGigante;
 import personagens.inimigos.FlageloSupremo;
 
 import java.io.*;
+import java.util.List;
 import java.util.Random;
 import java.util.Scanner;
 
 // IMPORTA O MUNDO
 import mundo.WorldProgress;
+
+// INVENTÁRIO / ITENS
+import itens.Item;
+import itens.Inventario;
 
 /**
  * Jogo.java integrado com:
@@ -30,14 +35,16 @@ import mundo.WorldProgress;
  * - Salvamento de pacote (Personagem + Mundo) com retrocompatibilidade
  * - Menu de exploração por área (mínimo p/ avançar + limite de salas)
  * - Encontros aleatórios (comum/mini-boss) e Boss ao concluir área
- * - "Usar item (demo)" mantido como placeholder
- *
- * IMPORTANTE: textos da história NÃO foram alterados.
+ * - Inventário com uso de itens (cura/mana e pronto para buffs de ATK/DEF)
  */
 public class Jogo {
 
     private static final String SAVE_PATH = "src/data/saves/save.dat";
     private static final String RANK_PATH = "src/data/rank/rank.txt";
+
+    // ===== Config de itens iniciais =====
+    private static final int START_QTD_POTION_CURA = 5;
+    private static final int START_QTD_POTION_MANA = 3;
 
     // Estado do mundo atual (vai junto no save)
     private static WorldProgress mundo;
@@ -104,6 +111,9 @@ public class Jogo {
     private static void comecarJogo(Scanner sc) {
         Personagem jogador = selecionarHeroi(sc);
 
+        // Itens iniciais (pronto pra buffs de ATK/DEF futuramente)
+        darItensIniciais(jogador);
+
         // Intro personalizada com efeito digitando (TEXTOS MANTIDOS)
         Efeitos.limparTela();
         System.out.println("Você escolheu: " + jogador.getNome() + " — " + jogador.getClasse() + "\n");
@@ -140,12 +150,15 @@ public class Jogo {
             System.out.println("=== STATUS ===");
             System.out.println(jogador);
 
+            System.out.println("\nInventário:");
+            System.out.println(jogador.getInventario());
+
             System.out.println("\nAções:");
             System.out.println("[1] Explorar (área atual)");
             System.out.println("[2] Explorar em outra área");
             System.out.println("[3] Ver Mapa/Áreas");
             System.out.println("[4] Avançar para próxima área");
-            System.out.println("[5] Usar Item (demo)");
+            System.out.println("[5] Usar Item");
             System.out.println("[6] Salvar Jogo");
             System.out.println("[7] Pausar");
             System.out.println("[8] Voltar ao Menu");
@@ -205,7 +218,7 @@ public class Jogo {
                     // Antes de avançar, se a área puder avançar, enfrenta o BOSS da área atual
                     if (mundo.podeAvancar()) {
                         int idxAtual = mundo.getAreaAtualIndex();
-                        // >>> CORREÇÃO: usa total de áreas reais do mundo, não "liberadas"
+                        // Usa total de áreas reais do mundo
                         Personagem boss = bossDaArea(idxAtual, mundo.getAreas().size());
                         System.out.println("\n⚠ Você sente uma presença poderosa bloqueando seu caminho...");
                         iniciarCombate(sc, jogador, boss);
@@ -222,10 +235,7 @@ public class Jogo {
                     aguardarEnter(sc);
                 }
                 case "5" -> {
-                    // DEMO: usar item sem mexer na tua estrutura (integre com Inventario real depois)
-                    jogador.curar(5);
-                    System.out.println(jogador.getNome() + " recuperou 5 PV.");
-                    aguardarEnter(sc);
+                    menuUsarItem(sc, jogador);
                 }
                 case "6" -> {
                     salvarJogoPacote(jogador, mundo);
@@ -322,6 +332,69 @@ public class Jogo {
             return selecionarHeroi(sc);
         }
         return jogador;
+    }
+
+    // ===== Inventário: seed inicial =====
+    private static void darItensIniciais(Personagem jogador) {
+        jogador.adicionarItem("Poção de Cura", "Recupera uma quantidade de PV.", Item.Efeito.CURA, START_QTD_POTION_CURA);
+        jogador.adicionarItem("Poção de Mana", "Recupera uma quantidade de PM.", Item.Efeito.MANA, START_QTD_POTION_MANA);
+
+        // Hooks prontos para futuro:
+        // jogador.adicionarItem("Tônico de Fúria", "Aumenta ATK neste turno.", Item.Efeito.ATAQUE, 1);
+        // jogador.adicionarItem("Tônico de Aço", "Aumenta DEF neste turno.", Item.Efeito.DEFESA, 1);
+        // jogador.adicionarItem("Elixir do Herói", "Cura e concede pequenos bônus temporários.", Item.Efeito.BUFF_GERAL, 1);
+    }
+
+    // ===== Menu Usar Item =====
+    private static void menuUsarItem(Scanner sc, Personagem jogador) {
+        Inventario inv = jogador.getInventario();
+        List<Item> lista = inv.listarOrdenado();
+
+        if (lista.isEmpty()) {
+            System.out.println("\nInventário vazio, gordão!");
+            aguardarEnter(sc);
+            return;
+        }
+
+        System.out.println("\n=== USAR ITEM ===");
+        for (int i = 0; i < lista.size(); i++) {
+            Item it = lista.get(i);
+            System.out.printf("[%d] %s x%d — %s (%s)%n",
+                    i + 1, it.getNome(), it.getQuantidade(), it.getDescricao(), it.getEfeito());
+        }
+        System.out.println("[0] Voltar");
+        System.out.print("> ");
+
+        String s = sc.nextLine().trim();
+        int escolha;
+        try {
+            escolha = Integer.parseInt(s);
+        } catch (NumberFormatException e) {
+            System.out.println("Entrada inválida.");
+            aguardarEnter(sc);
+            return;
+        }
+        if (escolha == 0) return;
+
+        int idx = escolha - 1;
+        if (idx < 0 || idx >= lista.size()) {
+            System.out.println("Opção inválida.");
+            aguardarEnter(sc);
+            return;
+        }
+
+        Item escolhido = lista.get(idx);
+        System.out.printf("Usar '%s'? (s/N) ", escolhido.getNome());
+        String conf = sc.nextLine().trim().toLowerCase();
+        if (!conf.equals("s")) return;
+
+        boolean ok = jogador.usarItem(escolhido.getNome(), escolhido.getEfeito());
+        if (ok) {
+            System.out.println("Item usado!");
+        } else {
+            System.out.println("Não foi possível usar o item.");
+        }
+        aguardarEnter(sc);
     }
 
     // ───────────────────────────────

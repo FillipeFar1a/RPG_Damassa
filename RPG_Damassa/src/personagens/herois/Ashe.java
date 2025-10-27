@@ -1,7 +1,7 @@
 package personagens.herois;
 
+import personagens.EfeitoPorTurno;
 import personagens.Personagem;
-import itens.base.EfeitoPorTurno;
 
 import java.util.Random;
 import java.util.Scanner;
