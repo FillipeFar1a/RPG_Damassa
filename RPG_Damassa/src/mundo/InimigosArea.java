@@ -28,7 +28,6 @@ public class InimigosArea {
 
     // ==== Hooks públicos para eventos de história/combate ====
 
-    /** Chame quando Lissandra for derrotada (desbloqueia progressão e Volibear dinâmico). */
     public static void marcarLissandraDerrotada() {
         lissandraDerrotada = true;
         inimigosDerrotadosAposLissandra = 0;
@@ -88,9 +87,10 @@ public class InimigosArea {
 
         // Se por algum motivo ficou sem opções, fallback para mobs básicos
         if (chances.isEmpty()) {
-            chances.add(new InimigoChance(FlageloGuerreiro.class, 40));
+            chances.add(new InimigoChance(FlageloGuerreiro.class, 30));
             chances.add(new InimigoChance(FlageloArqueiro.class, 30));
             chances.add(new InimigoChance(FlageloMago.class, 30));
+            chances.add(new InimigoChance(FlageloGigante.class, 10));
         }
 
         double total = chances.stream().mapToDouble(c -> c.chance).sum();
@@ -118,29 +118,22 @@ public class InimigosArea {
 
         switch (numeroArea) {
             case 3 -> {
-                // mobs
                 lista.add(new InimigoChance(FlageloArqueiro.class, 15));
                 lista.add(new InimigoChance(FlageloGuerreiro.class, 15));
                 lista.add(new InimigoChance(FlageloGigante.class, 10));
                 lista.add(new InimigoChance(FlageloMago.class, 10));
-                // bosses únicos (só se ainda não mortos)
                 if (!dariusDerrotado)  lista.add(new InimigoChance(Darius.class, 15));
                 if (!trundleDerrotado) lista.add(new InimigoChance(Trundle.class, 15));
-                // mini-boss
                 lista.add(new InimigoChance(FlageloSupremo.class, 20));
             }
             case 4 -> {
-                // mobs
                 lista.add(new InimigoChance(FlageloArqueiro.class, 10));
                 lista.add(new InimigoChance(FlageloGuerreiro.class, 10));
                 lista.add(new InimigoChance(FlageloGigante.class, 10));
                 lista.add(new InimigoChance(FlageloMago.class, 10));
-                // bosses únicos (só se ainda não mortos)
                 if (!lissandraDerrotada) lista.add(new InimigoChance(Lissandra.class, 20));
                 if (!sylasDerrotado)     lista.add(new InimigoChance(Sylas.class, 20));
-                // mini-boss
                 lista.add(new InimigoChance(FlageloSupremo.class, 30));
-                // Volibear entra dinamicamente após Lissandra (em sortearInimigo)
             }
             default -> {
                 // Outras áreas (se existirem) podem ter mobs genéricos
@@ -152,7 +145,6 @@ public class InimigosArea {
         return lista;
     }
 
-    // ===== (Opcional) Getters de estado — úteis para UI/Save =====
     public static boolean isLissandraDerrotada() { return lissandraDerrotada; }
     public static boolean isSylasDerrotado() { return sylasDerrotado; }
     public static boolean isDariusDerrotado() { return dariusDerrotado; }
