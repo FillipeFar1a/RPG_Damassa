@@ -8,7 +8,7 @@ public class Kindred extends Personagem {
         super(
                 "Kindred",
                 "A Morte",
-                180 + 8 * Math.max(1, nivelJogador),
+                690 + 8 * Math.max(1, nivelJogador),
                 80  + 4 * Math.max(1, nivelJogador),
                 28  + 2 * Math.max(1, nivelJogador),
                 14  + 2 * Math.max(1, nivelJogador),

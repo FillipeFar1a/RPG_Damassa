@@ -7,7 +7,7 @@ public class FlageloArqueiro extends Personagem {
     public FlageloArqueiro(int nivelArea) {
         super("Flagelo Arqueiro", "Inimigo",
                 15 + 3*nivelArea, 0,
-                3 + 2*nivelArea, 2 + 2*nivelArea,
+                5 + 2*nivelArea, 2 + 2*nivelArea,
                 Math.max(1, nivelArea), 12);
     }
 

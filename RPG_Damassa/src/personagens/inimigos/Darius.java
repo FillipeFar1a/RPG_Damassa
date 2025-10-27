@@ -5,7 +5,7 @@ import java.util.concurrent.ThreadLocalRandom;
 
 public class Darius extends Personagem {
     public Darius() {
-        super("Darius", "Boss", 50, 20, 28, 8, 8, 20);
+        super("Darius", "Boss", 50, 20, 25, 10, 8, 120);
     }
 
     @Override
