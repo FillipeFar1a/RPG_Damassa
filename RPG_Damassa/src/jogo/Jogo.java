@@ -37,6 +37,7 @@ import itens.Inventario;
  * - Encontros aleatórios (comum / mini-boss) e Boss ao avançar
  * - Inventário com itens (cura/mana + hooks p/ ATK/DEF)
  * - Drop de poções pós-combate (aleatório)
+ * - XP vem do inimigo derrotado (xpDrop)
  */
 public class Jogo {
 
@@ -200,8 +201,7 @@ public class Jogo {
                     if (mundo.explorarNaArea(idx)) {
                         System.out.println("Você explora a área: " + mundo.getAreaAtual().def().getNome());
                         tentarEncontro(sc, jogador, idx);
-                        jogador.ganharXp(5);
-                        System.out.println("+5 XP!");
+                        // (Removido) XP fixo de exploração — agora só via combate
                     } else {
                         System.out.println("Esta área esgotou suas salas (limite atingido).");
                     }
@@ -221,8 +221,7 @@ public class Jogo {
                             if (mundo.explorarNaArea(idx)) {
                                 System.out.println("Você explora a área: " + mundo.getAreas().get(idx).def().getNome());
                                 tentarEncontro(sc, jogador, idx);
-                                jogador.ganharXp(5);
-                                System.out.println("+5 XP!");
+                                // (Removido) XP fixo de exploração — agora só via combate
                             } else {
                                 System.out.println("Não foi possível (esta área já esgotou as salas).");
                             }
@@ -283,7 +282,7 @@ public class Jogo {
     }
 
     // =====================================================
-    // ENCONTROS / COMBATE / LOOT
+    // ENCONTROS / COMBATE / LOOT / XP
     // =====================================================
     private static void tentarEncontro(Scanner sc, Personagem jogador, int idxArea) {
         double roll = RNG.nextDouble();
@@ -306,10 +305,39 @@ public class Jogo {
         Combate combate = new Combate(jogador, inimigo);
         combate.iniciar();
 
-        // Loot de poções se inimigo morreu e jogador sobreviveu
+        // XP & Loot se o inimigo morreu e o jogador sobreviveu
         if (jogador.vivo() && inimigo != null && !inimigo.vivo()) {
+            int xp = xpDrop(inimigo);
+            if (xp > 0) {
+                jogador.ganharXp(xp);
+                System.out.println("💥 Vitória! Você ganhou " + xp + " XP.");
+            }
             tentarDropPotions(jogador, inimigo);
         }
+    }
+
+    /** Regra de XP por tipo + nível (ajuste à vontade): */
+    private static int xpDrop(Personagem inimigo) {
+        int nv = Math.max(1, inimigo.getNivel());
+
+        // Bosses principais
+        if (inimigo instanceof Volibear) return 100 + nv * 15;
+        if (inimigo instanceof Darius || inimigo instanceof Trundle ||
+                inimigo instanceof Sylas  || inimigo instanceof Lissandra) {
+            return 40 + nv * 10;
+        }
+
+        // Mini-boss
+        if (inimigo instanceof FlageloSupremo) return 25 + nv * 8;
+
+        // Mobs comuns (escalonados)
+        if (inimigo instanceof FlageloGigante)  return 18 + nv * 6;
+        if (inimigo instanceof FlageloMago)     return 14 + nv * 5;
+        if (inimigo instanceof FlageloArqueiro) return 12 + nv * 4;
+        if (inimigo instanceof FlageloGuerreiro)return 12 + nv * 4;
+
+        // Fallback genérico
+        return 10 + nv * 3;
     }
 
     /** Sorteia 1..3 poções com tipo aleatório (CURA/MANA) por unidade. */
@@ -511,7 +539,7 @@ public class Jogo {
             }
         } catch (Exception ignored) {}
 
-        // 2) tenta formato antigo (só Personagem)
+        // 2) formato antigo (só Personagem)
         try (ObjectInputStream in = new ObjectInputStream(new FileInputStream(arquivo))) {
             Object o = in.readObject();
             if (o instanceof Personagem p) {
