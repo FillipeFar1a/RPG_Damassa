@@ -4,6 +4,7 @@ import personagens.Personagem;
 import itens.Inventario;
 import itens.Item;
 
+import java.io.Serializable;
 import java.util.List;
 import java.util.Random;
 import java.util.Scanner;

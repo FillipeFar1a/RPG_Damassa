@@ -5,8 +5,8 @@ import util.Combate;
 
 import java.util.Random;
 import java.util.Scanner;
+import itens.base.EfeitoPorTurno;
 
-// INIMIGOS invocados pelo TP
 import personagens.inimigos.Garen;
 import personagens.inimigos.Kindred;
 import personagens.inimigos.Volibear;

@@ -1,7 +1,7 @@
 package personagens.herois;
 
-import personagens.EfeitoPorTurno;
 import personagens.Personagem;
+import itens.base.EfeitoPorTurno;
 
 import java.util.Random;
 import java.util.Scanner;
@@ -11,7 +11,7 @@ public class Aurora extends Personagem {
     private final Random random = new Random();
 
     public Aurora() {
-        super("Aurora", "Coelha Safada", 28, 26, 8, 3, 1, 20);
+        super("Aurora", "Maga", 28, 26, 999, 3, 1, 20);
     }
 
     @Override

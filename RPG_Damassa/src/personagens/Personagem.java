@@ -7,8 +7,7 @@ import java.util.List;
 
 import itens.Inventario;
 import itens.Item;
-// usa a interface no mesmo pacote "personagens"
-import personagens.EfeitoPorTurno;
+import itens.base.EfeitoPorTurno;
 
 public abstract class Personagem implements Serializable {
     protected String nome;
@@ -25,13 +24,13 @@ public abstract class Personagem implements Serializable {
     private int bonusAtkTemporario = 0;
 
     // ===== EFEITOS POR TURNO =====
-    private final List<EfeitoPorTurno> efeitosPermanentes = new ArrayList<>();
+    private final List<itens.base.EfeitoPorTurno> efeitosPermanentes = new ArrayList<>();
     private final List<EfeitoTemporario> efeitosTemporarios = new ArrayList<>();
 
     private static class EfeitoTemporario implements Serializable {
-        final EfeitoPorTurno efeito;
+        final itens.base.EfeitoPorTurno efeito;
         int turnosRestantes;
-        EfeitoTemporario(EfeitoPorTurno efeito, int turnos) {
+        EfeitoTemporario(itens.base.EfeitoPorTurno efeito, int turnos) {
             this.efeito = efeito;
             this.turnosRestantes = Math.max(1, turnos);
         }
