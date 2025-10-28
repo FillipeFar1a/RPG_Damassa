@@ -31,13 +31,13 @@ import itens.Inventario;
 
 /**
  * Jogo.java
- * - Áreas / Mundo (WorldProgress)
+ * - Áreas / Mundo (WorldProgress por nível, sem limite de exploração)
  * - Save/Load retrocompatível (jogador + mundo)
- * - Exploração por área (mínimo p/ avançar + limite de salas)
  * - Encontros aleatórios (comum / mini-boss) e Boss ao avançar
  * - Inventário com itens (cura/mana + hooks p/ ATK/DEF)
  * - Drop de poções pós-combate (aleatório)
  * - XP vem do inimigo derrotado (xpDrop)
+ * - Mapa ASCII estilo candy box (apenas DENTRO do jogo)
  */
 public class Jogo {
 
@@ -90,7 +90,7 @@ public class Jogo {
             switch (opcao) {
                 case "1" -> comecarJogo(sc);
                 case "2" -> carregarJogo(sc);
-                case "3" -> mostrarRank(sc);
+                case "3" -> mostrarRank(sc);       // Rank no menu inicial
                 case "4" -> configuracoes(sc);
                 case "5" -> {
                     Efeitos.limparTela();
@@ -116,7 +116,7 @@ public class Jogo {
         System.out.println();
         System.out.println("[1] Começar");
         System.out.println("[2] Carregar");
-        System.out.println("[3] Rank");
+        System.out.println("[3] Rank");              // <- aqui é Rank
         System.out.println("[4] Configurações");
         System.out.println("[5] Sair");
     }
@@ -128,9 +128,16 @@ public class Jogo {
         Personagem jogador = selecionarHeroi(sc);
         darItensIniciais(jogador);
 
-        // Intro (textos mantidos, ajustei acento)
+        // Intro do herói
         Efeitos.limparTela();
         System.out.println("Você escolheu: " + jogador.getNome() + " — " + jogador.getClasse() + "\n");
+
+        Efeitos.limparTela();
+        String[] falaIntro = jogador.intro();       // cada herói retorna seu texto de intro
+        Efeitos.textoDigitando(falaIntro, 30, 600); // (velocidade, pausaEntreLinhas)
+        System.out.println("\n[Pressione Enter para continuar]");
+        sc.nextLine();
+
         Efeitos.limparTela();
         String[] cena2 = {
                 "Volibear está desperto. E sua ira ameaça engolir o mundo",
@@ -199,31 +206,35 @@ public class Jogo {
                 case "1" -> {
                     int idx = mundo.getAreaAtualIndex();
                     if (mundo.explorarNaArea(idx)) {
-                        System.out.println("Você explora a área: " + mundo.getAreaAtual().def().getNome());
+                        System.out.println("Você explora a área: " + mundo.getAreaAtualNome());
                         tentarEncontro(sc, jogador, idx);
-                        // (Removido) XP fixo de exploração — agora só via combate
                     } else {
-                        System.out.println("Esta área esgotou suas salas (limite atingido).");
+                        System.out.println("Não foi possível explorar aqui.");
                     }
                     pausar(sc);
                 }
                 case "2" -> {
-                    System.out.println(mundo.mapa()); // mostra só liberadas
-                    System.out.print("Qual área deseja explorar? (número) ");
+                    // Mostra mapa ASCII antes de escolher
+                    Efeitos.limparTela();
+                    System.out.println(renderMapaAscii(jogador));
+                    System.out.println("\nDigite o número da área para explorar:");
                     try {
                         int num = Integer.parseInt(sc.nextLine());
                         int idx = num - 1;
 
-                        if (idx < 0 || idx >= mundo.getUnlockedCount()) {
+                        if (idx < 0 || idx >= mundo.getUnlockedCount(jogador)) {
                             System.out.println("Área inválida. Selecione uma das áreas liberadas exibidas no mapa.");
                         } else {
+                            // troca o foco da área atual
                             mundo.setAreaAtual(idx);
+
+                            Efeitos.limparTela();
+                            System.out.println(renderMiniMapaLinha(jogador)); // mini header bonitinho
                             if (mundo.explorarNaArea(idx)) {
-                                System.out.println("Você explora a área: " + mundo.getAreas().get(idx).def().getNome());
+                                System.out.println("\nVocê explora: " + mundo.getAreaNome(idx));
                                 tentarEncontro(sc, jogador, idx);
-                                // (Removido) XP fixo de exploração — agora só via combate
                             } else {
-                                System.out.println("Não foi possível (esta área já esgotou as salas).");
+                                System.out.println("Não foi possível explorar aqui.");
                             }
                         }
                     } catch (NumberFormatException e) {
@@ -232,21 +243,23 @@ public class Jogo {
                     pausar(sc);
                 }
                 case "3" -> {
-                    System.out.println(mundo.mapa()); // ou mundo.mapaCurto();
+                    // Ver mapa dentro do jogo
+                    Efeitos.limparTela();
+                    System.out.println(renderMapaAscii(jogador));
                     pausar(sc);
                 }
                 case "4" -> {
-                    if (mundo.podeAvancar()) {
+                    if (mundo.podeAvancar(jogador)) {
                         int idxAtual = mundo.getAreaAtualIndex();
-                        Personagem boss = bossDaArea(idxAtual, mundo.getAreas().size());
+                        Personagem boss = bossDaArea(idxAtual, mundo.getAreasCount());
                         System.out.println("\n⚠ Você sente uma presença poderosa bloqueando seu caminho...");
                         iniciarCombate(sc, jogador, boss);
                         if (!jogador.vivo()) break;
 
-                        mundo.avancarArea();
-                        System.out.println("Você avançou para: " + mundo.getAreaAtual().def().getNome());
+                        mundo.avancarArea(jogador);
+                        System.out.println("Você avançou para: " + mundo.getAreaAtualNome());
                     } else {
-                        System.out.println("Ainda não liberou o avanço. Explore mais salas na área atual.");
+                        System.out.println("Ainda não liberou o avanço. Suba de nível ou libere mais áreas.");
                     }
                     pausar(sc);
                 }
@@ -279,6 +292,85 @@ public class Jogo {
         System.out.println(jogador);
         System.out.println("\nInventário:");
         System.out.println(jogador.getInventario());
+    }
+
+    // =====================================================
+    // MAPA ASCII — estilo candy box (somente in-game)
+    // =====================================================
+    private static String renderMapaAscii(Personagem jogador) {
+        // Arte base da montanha
+        String[] montanha = new String[]{
+                "                        ,sdPBbs.",
+                "                      ,d$$$$$$$$b.",
+                "                     d$P'`Y'`Y'`?$b",
+                "                    d'    `  '  \\ `b",
+                "                   /    |        \\  \\",
+                "                  /    / \\\\       |   \\",
+                "             _,--'        |      \\    |",
+                "           /' _/          \\   |        \\",
+                "        _/' /'             |   \\        `-.__",
+                "    __/'       ,-'    /    |    |     \\      `--...__",
+                "  /'          /      |    / \\     \\     `-.           `\\",
+                " /    /;;,,__-'      /   /    \\            \\            `-.",
+                "/    |;;;;;;;\\                                             \\",
+                "------------------------------------------------------------"
+        };
+
+        int n = mundo.getAreasCount();
+        int atual = mundo.getAreaAtualIndex();
+        int unlocked = mundo.getUnlockedCount(jogador);
+
+        // Nomes das áreas
+        String[] nomes = new String[n];
+        for (int i = 0; i < n; i++) nomes[i] = mundo.getAreaNome(i);
+
+        // Distribui linhas para rótulos das áreas
+        int[] linhasArea;
+        if (n == 5) {
+            linhasArea = new int[]{12, 10, 8, 6, 4};
+        } else {
+            linhasArea = new int[n];
+            int start = 3;
+            int end = montanha.length - 2;
+            double step = (end - start) / Math.max(1.0, (n - 1));
+            for (int i = 0; i < n; i++) linhasArea[i] = (int) Math.round(start + i * step);
+        }
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("=== MAPA DE FRELJORD ===\n\n");
+        for (int i = 0; i < montanha.length; i++) {
+            int idxArea = -1;
+            for (int k = 0; k < n; k++) {
+                if (linhasArea[k] == i) { idxArea = k; break; }
+            }
+
+            String linha = montanha[i];
+            if (idxArea >= 0) {
+                boolean desbloqueada = idxArea < unlocked;
+                boolean ehAtual = idxArea == atual;
+
+                String nome = nomes[idxArea];
+                String tag = (desbloqueada ? (ehAtual ? ">> " + nome + " <<" : nome) : "[BLOQUEADA] " + nome);
+
+                String padded = String.format("%-60s  %d) %s", linha, (idxArea + 1), tag);
+                sb.append(padded);
+            } else {
+                sb.append(linha);
+            }
+            sb.append('\n');
+        }
+
+        sb.append("\nLegenda: ");
+        sb.append(">> ÁREA ATUAL <<   |   [BLOQUEADA] = ainda indisponível\n");
+        sb.append(renderMiniMapaLinha(jogador));
+        return sb.toString();
+    }
+
+    private static String renderMiniMapaLinha(Personagem jogador) {
+        String nome = mundo.getAreaAtualNome();
+        String who = (jogador == null) ? "" :
+                String.format(" | Herói: %s (Nv %d)", jogador.getNome(), jogador.getNivel());
+        return String.format("\n[Área atual: %s]%s\n", nome, who);
     }
 
     // =====================================================
@@ -478,26 +570,49 @@ public class Jogo {
     private static void mostrarRank(Scanner sc) {
         Efeitos.limparTela();
         System.out.println("=== RANK DOS HERÓIS ===\n");
+
         File f = new File(RANK_PATH);
         if (!f.exists()) {
             System.out.println("Sem registros ainda.");
             pausar(sc);
             return;
         }
+
         try (BufferedReader br = new BufferedReader(new FileReader(f))) {
+            List<String[]> registros = new java.util.ArrayList<>();
             String linha;
-            int pos = 1;
             while ((linha = br.readLine()) != null) {
                 String[] t = linha.split(";");
-                if (t.length >= 2) System.out.printf("%dº  Nível %-3s  %s%n", pos++, t[0], t[1]);
-                if (pos > 10) break; // top 10
+                if (t.length >= 2) registros.add(t);
             }
+
+            // ordena do MAIOR para o MENOR nível
+            registros.sort((a, b) -> {
+                try {
+                    int n1 = Integer.parseInt(a[0]);
+                    int n2 = Integer.parseInt(b[0]);
+                    return Integer.compare(n2, n1); // ordem decrescente
+                } catch (NumberFormatException e) {
+                    return 0;
+                }
+            });
+
+            int pos = 1;
+            for (String[] t : registros) {
+                if (t.length >= 2) {
+                    System.out.printf("%dº  Nível %-3s  %s%n", pos++, t[0], t[1]);
+                }
+                if (pos > 10) break; // mostra top 10
+            }
+
         } catch (IOException e) {
             System.out.println("Erro ao ler rank: " + e.getMessage());
         }
+
         System.out.println("\n[Pressione Enter para voltar]");
         sc.nextLine();
     }
+
 
     private static void configuracoes(Scanner sc) {
         Efeitos.limparTela();
