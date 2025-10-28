@@ -127,7 +127,7 @@ public abstract class Personagem implements Serializable {
 
     protected void subirNivel() {
         nivel++;
-        pvMax += 5; pmMax += 3; atk += 1; def += 1;
+        pvMax += 7; pmMax += 4; atk += 3; def += 2;
         pv = pvMax; pm = pmMax; xpMax += 5;
     }
 
