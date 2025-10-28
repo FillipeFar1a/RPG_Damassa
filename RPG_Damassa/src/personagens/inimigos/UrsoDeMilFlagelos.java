@@ -26,13 +26,6 @@ public class UrsoDeMilFlagelos extends Personagem {
         };
     }
 
-    /**
-     * Habilidade do Boss Final:
-     * - Se tiver ≥ 20 PM: "Tempestade Flagelante" — consome 20 PM, ganha +6 ATK temporário
-     *   e desfere um golpe pesado (ATK efetivo + 12).
-     * - Caso contrário: "Trovão Uivante" — golpe menor (ATK efetivo + 4), 33% de chance de congelar o alvo
-     *   e recupera 5 PM (respiro da tempestade).
-     */
     @Override
     public void usarHabilidade(Personagem alvo) {
         if (getPm() >= 20) {

@@ -3,7 +3,7 @@ package util;
 import personagens.Personagem;
 import itens.Inventario;
 import itens.Item;
-
+import personagens.Personagem;
 import java.io.Serializable;
 import java.util.List;
 import java.util.Random;
@@ -194,4 +194,5 @@ public class Combate {
         sc.nextLine();
         Efeitos.limparTela();
     }
+
 }

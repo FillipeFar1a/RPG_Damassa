@@ -1,5 +1,7 @@
 package util;
 
+import personagens.Personagem;
+
 public final class Efeitos {
 
     private Efeitos() {}
@@ -23,5 +25,14 @@ public final class Efeitos {
             System.out.println();
             esperar(Math.max(0, delayLinhaMs));
         }
+    }
+    private static Personagem jogadorAtual;
+
+    public static void setJogadorAtual(Personagem jogador) {
+        jogadorAtual = jogador;
+    }
+
+    public static Personagem getJogadorAtual() {
+        return jogadorAtual;
     }
 }
