@@ -4,110 +4,129 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
+import personagens.Personagem;
+
 /**
- * Mundo com desbloqueio progressivo:
- * - Começa com 1 área desbloqueada.
- * - Ao cumprir o mínimo na área atual, desbloqueia a próxima (até a 3ª).
- * - “Salão dos Flagelos” desbloqueia quando as 3 primeiras estiverem completas.
+ * WorldProgress — versão “por nível” e sem limite de exploração.
+ * - Áreas são liberadas conforme o NÍVEL do jogador (Nv 1 -> 1 área, Nv 2 -> 2 áreas, ...).
+ * - Explorar não tem limite (explorarNaArea sempre retorna true).
+ * - Rastreia bosses derrotados e libera o Volibear ao cumprir requisitos.
  */
 public class WorldProgress implements Serializable {
 
-    // Se true, exige esgotar TODAS as salas das 3 primeiras áreas para liberar o Salão.
-    // Se false, libera ao cumprir o mínimo de cada uma.
-    private static final boolean REQUIRE_FULL_CLEAR = true;
+    // ====== CONFIG ======
+    private static final int FINAL_BOSS_LEVEL_REQ = 15;
 
-    private final List<AreaProgress> areas = new ArrayList<>();
+    // ====== MODELO DE ÁREA ======
+    public static class AreaDef implements Serializable {
+        private final String nome;
+        public AreaDef(String nome) { this.nome = nome; }
+        public String getNome() { return nome; }
+    }
+
+    public static class Area implements Serializable {
+        private final AreaDef def;
+        public Area(AreaDef def) { this.def = def; }
+        public AreaDef def() { return def; }
+        // compat
+        public int getExploradas() { return 0; }
+    }
+
+    private final List<Area> areas = new ArrayList<>();
     private int areaAtualIndex = 0;
-    private int unlockedCount = 1; // quantas áreas estão liberadas para exploração (>=1)
+
+    // ====== PROGRESSO DE BOSSES ======
+    private boolean defeatedDarius;
+    private boolean defeatedTrundle;
+    private boolean defeatedSylas;
+    private boolean defeatedLissandra;
+
+    private boolean finalBossUnlocked; // Volibear liberado?
 
     public WorldProgress() {
-        areas.add(new AreaProgress(AreaDef.BASE_MONTANHA));
-        areas.add(new AreaProgress(AreaDef.MASMORRA));
-        areas.add(new AreaProgress(AreaDef.TOPO_MONTANHA));
-        areas.add(new AreaProgress(AreaDef.SALAO_DOS_FLAGELOS));
+        areas.add(new Area(new AreaDef("Campos Gelados")));
+        areas.add(new Area(new AreaDef("Fendas do Gelo")));
+        areas.add(new Area(new AreaDef("Garganta dos Ventos")));
+        areas.add(new Area(new AreaDef("Ruínas Ancestrais")));
+        areas.add(new Area(new AreaDef("Montanhas Tempestuosas"))); // topo (Volibear)
     }
 
-    public List<AreaProgress> getAreas() { return areas; }
+    // ===== API usada pelo jogo =====
+    public int getAreasCount() { return areas.size(); }
     public int getAreaAtualIndex() { return areaAtualIndex; }
-    public AreaProgress getAreaAtual() { return areas.get(areaAtualIndex); }
+    public String getAreaAtualNome() { return areas.get(areaAtualIndex).def().getNome(); }
+    public String getAreaNome(int idx) { return areas.get(idx).def().getNome(); }
 
-    public boolean isUnlocked(int index) { return index >= 0 && index < unlockedCount; }
-    public int getUnlockedCount() { return unlockedCount; }
-
-    /** Explorar sala em uma área (somente se desbloqueada). */
-    public boolean explorarNaArea(int index) {
-        if (!isUnlocked(index)) return false;
-        boolean ok = areas.get(index).explorarUmaSala();
-        if (ok) checarDesbloqueios(); // toda exploração pode destravar algo
-        return ok;
+    /** Áreas desbloqueadas = min(nível, total), no mínimo 1. */
+    public int getUnlockedCount(Personagem jogador) {
+        int n = getAreasCount();
+        int nv = Math.max(1, jogador.getNivel());
+        return Math.min(n, Math.max(1, nv));
     }
 
-    /** Pode avançar área atual -> próxima (se já estiver desbloqueada). */
-    public boolean podeAvancar() {
-        // avançar o foco só faz sentido se existir próxima já desbloqueada
-        return getAreaAtual().liberouAvanco() && (areaAtualIndex + 1) < unlockedCount;
+    public void setAreaAtual(int idx) {
+        if (idx >= 0 && idx < areas.size()) areaAtualIndex = idx;
     }
 
-    /** Move o foco para a próxima área desbloqueada. */
-    public boolean avancarArea() {
-        if (!podeAvancar()) return false;
-        areaAtualIndex++;
-        return true;
+    public boolean explorarNaArea(int idx) {
+        return idx >= 0 && idx < areas.size();
     }
 
-    /** Mapa textual com bloqueios visíveis. */
-    public String mapa() {
-        StringBuilder sb = new StringBuilder("=== MAPA / ÁREAS (desbloqueadas) ===\n");
-        for (int i = 0; i < unlockedCount; i++) {
-            AreaProgress ap = areas.get(i);
-            String marcador = (i == areaAtualIndex) ? " [ATUAL]" : "";
-            sb.append(String.format("%d) %s%s\n", i + 1, ap.toString(), marcador));
+    public boolean podeAvancar(Personagem jogador) {
+        int unlocked = getUnlockedCount(jogador);
+        return (areaAtualIndex + 1) < unlocked;
+    }
+
+    public void avancarArea(Personagem jogador) {
+        if (podeAvancar(jogador)) {
+            areaAtualIndex = Math.min(areaAtualIndex + 1, getUnlockedCount(jogador) - 1);
+        }
+    }
+
+    // ===== Boss progress & final unlock =====
+    public void marcarBossDerrotado(String nome) {
+        if (nome == null) return;
+        switch (nome) {
+            case "Darius" -> defeatedDarius = true;
+            case "Trundle" -> defeatedTrundle = true;
+            case "Sylas" -> defeatedSylas = true;
+            case "Lissandra" -> defeatedLissandra = true;
+            default -> { /* ignorar outros */ }
+        }
+    }
+
+    public boolean preBossesTodosDerrotados() {
+        return defeatedDarius && defeatedTrundle && defeatedSylas && defeatedLissandra;
+    }
+
+    public boolean isFinalBossUnlocked() { return finalBossUnlocked; }
+
+    /**
+     * Tenta liberar o Volibear. Retorna true se liberou agora (para exibir mensagem uma única vez).
+     */
+    public boolean tryUnlockFinalBoss(Personagem jogador) {
+        if (!finalBossUnlocked
+                && jogador != null
+                && jogador.getNivel() >= FINAL_BOSS_LEVEL_REQ
+                && preBossesTodosDerrotados()) {
+            finalBossUnlocked = true;
+            return true;
+        }
+        return false;
+    }
+
+    // Opcional: mapa simples textual
+    public String mapa(Personagem jogador) {
+        StringBuilder sb = new StringBuilder();
+        int unlocked = getUnlockedCount(jogador);
+        sb.append("=== MAPA DE FRELJORD ===\n");
+        for (int i = 0; i < areas.size(); i++) {
+            String nome = getAreaNome(i);
+            boolean desbloqueada = i < unlocked;
+            boolean atual = i == areaAtualIndex;
+            String tag = desbloqueada ? (atual ? ">> " + nome + " <<" : nome) : "[BLOQUEADA] " + nome;
+            sb.append(String.format("%d) %s%n", i + 1, tag));
         }
         return sb.toString();
     }
-
-
-    /** Checa condições de desbloqueio após cada exploração. */
-    public void checarDesbloqueios() {
-        // 1) Desbloqueio linear das áreas 1->2->3 ao cumprir MIN da área atual
-        // Só tenta desbloquear a próxima se ainda não chegou na 3ª
-        if (unlockedCount < 3) {
-            AreaProgress atual = areas.get(unlockedCount - 1); // última desbloqueada
-            if (atual.liberouAvanco()) {
-                unlockedCount = Math.min(3, unlockedCount + 1);
-            }
-        }
-
-        // 2) Desbloqueio do Salão dos Flagelos
-        if (unlockedCount < 4 && condicaoParaSalao()) {
-            unlockedCount = 4;
-        }
-    }
-
-    private boolean condicaoParaSalao() {
-        // verifica as três primeiras áreas
-        for (int i = 0; i < 3; i++) {
-            AreaProgress ap = areas.get(i);
-            if (REQUIRE_FULL_CLEAR) {
-                if (!ap.esgotada()) return false; // precisa 100%
-            } else {
-                if (!ap.liberouAvanco()) return false; // basta o mínimo
-            }
-        }
-        return true;
-    }
-
-    /** Mundo totalmente esgotado (todas as áreas 100%). */
-    public boolean mundoEsgotado() {
-        for (AreaProgress ap : areas) if (!ap.esgotada()) return false;
-        return true;
-    }
-
-    public boolean setAreaAtual(int index) {
-        if (!isUnlocked(index)) return false;
-        if (index < 0 || index >= areas.size()) return false;
-        this.areaAtualIndex = index;
-        return true;
-    }
-
 }

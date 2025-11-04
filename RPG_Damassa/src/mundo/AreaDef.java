@@ -2,23 +2,25 @@ package mundo;
 
 import java.io.Serializable;
 
-public enum AreaDef implements Serializable {
-    BASE_MONTANHA("Base da Montanha",   3, 6),
-    MASMORRA("Interior da Montanha",    4, 8),
-    TOPO_MONTANHA("Topo da Montanha",   5, 10),
-    SALAO_DOS_FLAGELOS("Salão dos Flagelos", 1, 3); // libera só no final
-
+/** Define os metadados de uma área do mundo. */
+public class AreaDef implements Serializable {
     private final String nome;
-    private final int minExplorar;
-    private final int maxSalas;
+    private final int maxSalas;      // teto de salas desta área
+    private final int minExplorar;   // mínimo para liberar avanço
 
-    AreaDef(String nome, int minExplorar, int maxSalas) {
+    public AreaDef(String nome, int maxSalas, int minExplorar) {
         this.nome = nome;
-        this.minExplorar = minExplorar;
-        this.maxSalas = maxSalas;
+        this.maxSalas = Math.max(1, maxSalas);
+        // minExplorar não pode exceder maxSalas e não pode ser negativo
+        this.minExplorar = Math.max(0, Math.min(this.maxSalas, minExplorar));
     }
 
-    public String getNome() { return nome; }
-    public int getMinExplorar() { return minExplorar; }
-    public int getMaxSalas() { return maxSalas; }
+    public String getNome()         { return nome; }
+    public int getMaxSalas()        { return maxSalas; }
+    public int getMinExplorar()     { return minExplorar; }
+
+    @Override
+    public String toString() {
+        return nome + " (salas: " + maxSalas + ", mínimo p/ avançar: " + minExplorar + ")";
+    }
 }
