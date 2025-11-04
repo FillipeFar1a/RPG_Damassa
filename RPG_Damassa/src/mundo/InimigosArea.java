@@ -46,7 +46,6 @@ public class InimigosArea {
         } else if (inimigo instanceof Sylas) {
             sylasDerrotado = true;
         } else if (inimigo instanceof Lissandra) {
-            // Lissandra é boss único também
             if (!lissandraDerrotada) marcarLissandraDerrotada();
         }
 
@@ -57,12 +56,6 @@ public class InimigosArea {
     }
 
     // ===== Sorteio principal =====
-
-    /**
-     * Retorna o inimigo sorteado com base nas probabilidades da área.
-     * Kindred tem 1,5% de chance global em qualquer área.
-     * Volibear só aparece após Lissandra ser derrotada, com chance crescente.
-     */
     public static Personagem sortearInimigo(int numeroArea) {
         Random random = new Random();
 

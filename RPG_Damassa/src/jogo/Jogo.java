@@ -30,14 +30,12 @@ import itens.Item;
 import itens.Inventario;
 
 /**
- * Jogo.java
  * - Áreas / Mundo (WorldProgress por nível, sem limite de exploração)
  * - Save/Load retrocompatível (jogador + mundo)
  * - Encontros aleatórios (comum / mini-boss) e Boss ao avançar
- * - Inventário com itens (cura/mana + hooks p/ ATK/DEF)
+ * - Inventário com itens (cura/mana)
  * - Drop de poções pós-combate (aleatório)
  * - XP vem do inimigo derrotado (xpDrop)
- * - Mapa ASCII estilo candy box (apenas DENTRO do jogo)
  */
 public class Jogo {
 
@@ -72,7 +70,6 @@ public class Jogo {
         Personagem getJogador() { return jogador; }
         WorldProgress getWorld() { return world; }
     }
-
     // =====================================================
     // ENTRADA
     // =====================================================
@@ -618,7 +615,7 @@ public class Jogo {
         Efeitos.limparTela();
         System.out.println("=== CONFIGURAÇÕES ===");
         System.out.println("Som: ON");
-        System.out.println("Dificuldade: Normal");
+        System.out.println("Dificuldade: Complicado");
         System.out.println("\n[Pressione Enter para voltar]");
         sc.nextLine();
     }
@@ -643,7 +640,7 @@ public class Jogo {
         File arquivo = new File(SAVE_PATH);
         if (!arquivo.exists()) return null;
 
-        // 1) tenta formato novo
+        // formato novo
         try (ObjectInputStream in = new ObjectInputStream(new FileInputStream(arquivo))) {
             Object o = in.readObject();
             if (o instanceof SaveData sd) {
@@ -654,7 +651,7 @@ public class Jogo {
             }
         } catch (Exception ignored) {}
 
-        // 2) formato antigo (só Personagem)
+        // formato antigo (só Personagem)
         try (ObjectInputStream in = new ObjectInputStream(new FileInputStream(arquivo))) {
             Object o = in.readObject();
             if (o instanceof Personagem p) {
